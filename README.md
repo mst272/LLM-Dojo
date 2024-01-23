@@ -1,6 +1,6 @@
 
 # LLM-Dojo: 大模型修炼道场 😊
-<img src="pic/pic.jpg" width="666">
+<img src="pic/pic.jpg" width="500">
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
