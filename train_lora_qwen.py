@@ -1,10 +1,13 @@
+import os
+import stat
+
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, DataCollatorForSeq2Seq
 from peft import LoraConfig, TaskType, get_peft_model
 from loguru import logger
 from llm_utils.data_process import QwenDataProcess
 from llm_utils.data_collator import MyDataCollator
-from os.path import join
+
 
 #  loraConfig
 config = LoraConfig(
@@ -17,8 +20,10 @@ config = LoraConfig(
 )
 
 # 配置训练参数
+outputfile = './output'
+os.chmod(outputfile, stat.S_IRWXU)
 args = TrainingArguments(
-    output_dir="./output/Qwen",
+    output_dir=outputfile,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=1,
     logging_steps=10,
@@ -70,8 +75,8 @@ logger.info("Total model params: %.2fM" % (total / 1e6))
 logger.info("*** starting training ***")
 train_result = trainer.train()
 # 保存最好的checkpoint
-final_save_path = join("./output/Qwen")
-trainer.save_model(final_save_path)  # Saves the tokenizer too
+# final_save_path = join("./output/Qwen")
+# trainer.save_model(final_save_path)  # Saves the tokenizer too
 # 保存训练指标
 metrics = train_result.metrics
 trainer.log_metrics("train", metrics)
