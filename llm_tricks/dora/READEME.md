@@ -1,6 +1,6 @@
 # DoRA: Weight-Decomposed Low-Rank Adaptation
 
-此为Dora微调方法的实现
+此为Dora微调方法的实现(目前huggingface也已集成dora，故使用可以直接使用huggingface，本模块可以作为详细的理论学习)
 
 Implementation of "DoRA: Weight-Decomposed Low-Rank Adaptation" (Liu et al, 2024) https://arxiv.org/pdf/2402.09353.pdf
 
