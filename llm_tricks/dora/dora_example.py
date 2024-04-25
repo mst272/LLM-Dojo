@@ -32,12 +32,12 @@ test_loader = DataLoader(dataset=test_dataset,
 # ----------------Hyperparameters-------------------------------------
 random_seed = 123
 learning_rate = 0.005
-num_epochs = 2
+num_epochs = 1
 
 # ----------------Architecture-----------------------------------------
 num_features = 784
-num_hidden_1 = 128
-num_hidden_2 = 256
+num_hidden_1 = 32
+num_hidden_2 = 64
 num_classes = 10
 
 torch.manual_seed(random_seed)
@@ -66,7 +66,7 @@ model = TestMLP(
 )
 
 model.to(DEVICE)
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 
 # ---------------------Eval---------------------------------------------
@@ -112,11 +112,11 @@ def train(epochs, model, optimizer, train_loader, device):
             # LOGGING
             if not batch_idx % 400:
                 print('Epoch: %03d/%03d | Batch %03d/%03d | Loss: %.4f'
-                      % (epoch + 1, num_epochs, batch_idx,
+                      % (epoch + 1, epochs, batch_idx,
                          len(train_loader), loss))
         with torch.set_grad_enabled(False):
             print('Epoch: %03d/%03d training accuracy: %.2f%%' % (
-                epoch + 1, num_epochs,
+                epoch + 1, epochs,
                 computer_metrics(model, train_loader, device)))
         print('Time elapsed: %.2f min' % ((time.time() - start_time) / 60))
     print('Total Training Time: %.2f min' % ((time.time() - start_time) / 60))
@@ -180,7 +180,44 @@ def freeze_linear_layers(model):
             freeze_linear_layers(child)
 
 
+# 将模型中的linear层替换为 LinearWithLoRA
+def convert_lora_layers(model):
+    for name, module in model.named_children():
+        if isinstance(module, nn.Linear):
+            setattr(model, name, LinearWithLoRA(module, rank=4, alpha=8))
+        else:
+            convert_lora_layers(module)
+
+
+# 将模型中的linear层替换为 LinearWithDoRA
+def convert_dora_layers(model):
+    for name, module in model.named_children():
+        if isinstance(module, nn.Linear):
+            setattr(model, name, LinearWithDoRA(module, rank=4, alpha=8))
+        else:
+            convert_lora_layers(module)
+
+
 if __name__ == '__main__':
+    train(num_epochs, model, optimizer, train_loader, DEVICE)
+    print(f'Test accuracy: {computer_metrics(model, test_loader, DEVICE):.2f}%')
+
     # 复制两份模型，以供lora 和 dora分别实验
     model_lora = copy.deepcopy(model)
     model_dora = copy.deepcopy(model)
+
+    # lora 训练
+    convert_lora_layers(model_lora)
+    freeze_linear_layers(model_lora)
+    model_lora.to(DEVICE)
+    optimizer_lora = torch.optim.Adam(model_lora.parameters(), lr=learning_rate)
+    train(2, model_lora, optimizer_lora, train_loader, DEVICE)
+    print(f'Test accuracy LoRA finetune: {computer_metrics(model_lora, test_loader, DEVICE):.2f}%')
+
+    # dora 训练
+    convert_dora_layers(model_dora)
+    freeze_linear_layers(model_dora)
+    model_dora.to(DEVICE)
+    optimizer_dora = torch.optim.Adam(model_dora.parameters(), lr=learning_rate)
+    train(2, model_dora, optimizer_dora, train_loader, DEVICE)
+    print(f'Test accuracy DoRA finetune: {computer_metrics(model_dora, test_loader, DEVICE):.2f}%')
