@@ -5,8 +5,8 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, DataCollatorForSeq2Seq
 from peft import LoraConfig, TaskType, get_peft_model
 from loguru import logger
-from llm_utils.data_process import QwenDataProcess
-from llm_utils.data_collator import MyDataCollator
+from utils.data_process import QwenDataProcess
+from utils.data_collator import MyDataCollator
 
 
 #  loraConfig
