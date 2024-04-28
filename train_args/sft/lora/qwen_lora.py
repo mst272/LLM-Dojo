@@ -34,3 +34,4 @@ class TrainArgument(TrainingArguments):
     max_grad_norm: float = field(default=1.0, metadata={"help": "Max gradient norm."})
     remove_unused_columns: Optional[bool] = field(default=False, metadata={
         "help": "Remove columns not required by the model when using an nlp.Dataset."})
+    bf16: bool = True
