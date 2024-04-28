@@ -1,11 +1,36 @@
+import json
 import os
-import stat
+from os.path import join
 from loguru import logger
 import torch
-from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, DataCollatorForSeq2Seq
-from peft import LoraConfig, TaskType, get_peft_model
+import torch.nn as nn
+from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, \
+    BitsAndBytesConfig, HfArgumentParser, set_seed
+from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 import bitsandbytes as bnb
+from utils.template import template_dict
+from utils.data_process import CommonSingleRoundDataProcess
+from utils.data_collator import SftDataCollator
+from train_args.sft.lora.qwen_lora import TrainArgument
+from utils.args import CommonArgs
 
+
+def initial_args():
+    parser = HfArgumentParser((CommonArgs, TrainArgument))
+    args, train_args = parser.parse_args_into_dataclasses()
+
+    if not os.path.exists(train_args.output_dir):
+        os.mkdir(train_args.output_dir)
+    logger.add(join(train_args.output_dir, 'train.log'))
+    logger.info("train_args:{}".format(train_args))
+    set_seed(train_args.seed)
+    # 保存训练参数
+    with open(join(train_args.output_dir, 'train_args.json'), "w") as f:
+        json_str = json.dumps(train_args, default=lambda o: o.__dict__)
+        f.write(json_str)
+
+    assert sum([train_args.fp16, train_args.bf16]) == 1, "only one of fp16 and bf16 can be True"
+    return args, train_args
 
 
 def find_all_linear_names(model, train_mode):
@@ -25,6 +50,7 @@ def find_all_linear_names(model, train_mode):
     lora_module_names = list(lora_module_names)
     logger.info(f'LoRA target module names: {lora_module_names}')
     return lora_module_names
+
 
 def create_tokenizer(args):
     config = AutoConfig.from_pretrained(args.model_name_or_path, trust_remote_code=True)
@@ -52,13 +78,113 @@ def create_model(args, train_args):
     logger.info(f'Train model with {args.train_mode}')
     # 确定训练的精度
     torch_dtype = torch.float16 if train_args.fp16 else torch.bfloat16
+    model_kwargs = dict(
+        trust_remote_code=True,
+        torch_dtype=torch_dtype,
+        use_cache=False if train_args.gradient_checkpointing else True,  # The cache is only used for generation,
+        # not for training.
+        device_map='auto'
+    )
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
-
+    def load_model(model_kwargs):
+        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
+        return model
 
     if args.train_mode == 'qlora':
         # 基本的qlora可以直接在加载模型中设置参数，也可以通过BitsAndBytesConfig进行一些设置
-        pass
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,  # 是否在4位精度下加载模型。如果设置为True，则在4位精度下加载模型。
+            bnb_4bit_compute_dtype=torch.float16 if train_args.fp16 else torch.bfloat16,  # 4位精度计算的数据类型。
+            bnb_4bit_quant_type="nf4",  # 4位精度量化的类型。这里设置为"nf4"，表示使用nf4量化类型。
+            bnb_4bit_use_double_quant=True  # 是否使用双精度量化。如果设置为True，则使用双精度量化。
+        )
+        model_kwargs.update(quantization_config=quantization_config)
+        model = load_model(model_kwargs)
+        # QLoRA: casts all the non int8 modules to full precision (fp32) for stability
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=train_args.gradient_checkpointing)
+
     elif args.train_mode == 'lora':
         # 找到所有linear层
-        target_modules = find_all_linear_names(model, args.train_mode)
+        model = load_model(model_kwargs)
+        if hasattr(model, 'enable_input_require_grads'):
+            # 不加可能报错
+            model.enable_input_require_grads()
+
+    # peft_config配置
+    target_modules = find_all_linear_names(model, args.train_mode)
+    peft_config = LoraConfig(
+        r=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        target_modules=target_modules,
+        lora_dropout=args.lora_dropout,
+        task_type=TaskType.CAUSAL_LM,
+    )
+
+    # peft_model 配置
+    model = get_peft_model(model, peft_config)
+    logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
+    model.print_trainable_parameters()
+
+    # 计算模型参数量
+    total = sum(p.numel() for p in model.parameters())
+    logger.info("Total model params: %.2fM" % (total / 1e6))
+
+    return {
+        'model': model,
+        'peft_config': peft_config
+    }
+
+
+def load_sft_dataset(args, tokenizer):
+    if args.template_name not in template_dict.keys():
+        raise Exception(f"template_name doesn't exist, all template_name: {template_dict.keys()}")
+    template = template_dict[args.template_name]
+    logger.info('Loading data with CommonSingleRoundDataProcess')
+    train_dataset = CommonSingleRoundDataProcess(args.train_data_path, tokenizer, args.max_len, template)
+    return train_dataset
+
+
+def create_trainer(args, train_args):
+    tokenizer = create_tokenizer(args)
+    model_dict = create_model(args, train_args)
+    model = model_dict['model']
+    peft_config = model_dict['peft_config']
+
+    if args.task_type == 'sft':
+        logger.info('Train model with sft task')
+        train_dataset = load_sft_dataset(args, tokenizer)
+        data_collator = SftDataCollator(tokenizer, args.max_len)
+    elif args.task_type == 'pretrain':
+        pass
+    else:
+        pass
+
+    trainer = Trainer(
+        model=model,
+        args=train_args,
+        train_dataset=train_dataset,
+        data_collator=data_collator
+    )
+
+    return trainer
+
+
+def main():
+    args, train_args = initial_args()
+    # 加载trainer
+    trainer = create_trainer(args, train_args)
+    # 开始训练
+    logger.info("*** starting training ***")
+    train_result = trainer.train()
+    # 保存最好的checkpoint
+    final_save_path = join(train_args.output_dir)
+    trainer.save_model(final_save_path)  # Saves the tokenizer too
+    # 保存训练指标
+    metrics = train_result.metrics
+    trainer.log_metrics("train", metrics)
+    trainer.save_metrics("train", metrics)
+    trainer.save_state()
+
+
+if __name__ == "__main__":
+    main()
