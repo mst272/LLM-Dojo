@@ -104,7 +104,9 @@ def create_model(args, train_args):
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=train_args.gradient_checkpointing)
 
     elif args.train_mode == 'lora':
-        # 找到所有linear层
+        # 是否使用dora
+        model_kwargs.update(use_dora=args.use_dora)
+
         model = load_model(model_kwargs)
         if hasattr(model, 'enable_input_require_grads'):
             # 不加可能报错

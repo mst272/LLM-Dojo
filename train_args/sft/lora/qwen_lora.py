@@ -25,7 +25,6 @@ class TrainArgument(TrainingArguments):
     warmup_steps: int = field(default=100, metadata={"help": "Linear warmup over warmup_steps."})
     optim: Union[OptimizerNames, str] = field(default='paged_adamw_32bit', metadata={"help": "The optimizer to use."})
     seed: int = field(default=42, metadata={"help": "Random seed that will be set at the beginning of training."})
-    fp16: bool = field(default=True, metadata={"help": "Whether to use fp16 (mixed) precision instead of 32-bit"})
     report_to: Optional[List[str]] = field(default='tensorboard', metadata={
         "help": "The list of integrations to report the results and logs to."})
     save_strategy: Union[IntervalStrategy, str] = field(default="steps",
@@ -34,4 +33,9 @@ class TrainArgument(TrainingArguments):
     max_grad_norm: float = field(default=1.0, metadata={"help": "Max gradient norm."})
     remove_unused_columns: Optional[bool] = field(default=False, metadata={
         "help": "Remove columns not required by the model when using an nlp.Dataset."})
-    bf16: bool = True
+    bf16: bool = field(default=True, metadata={
+        "help": ("Whether to use bf16 (mixed) precision instead of 32-bit. Requires Ampere or higher NVIDIA"
+                 " architecture or using CPU (use_cpu) or Ascend NPU. This is an experimental API and it may change."
+                 )
+        })
+    fp16: bool = field(default=False, metadata={"help": "Whether to use fp16 (mixed) precision instead of 32-bit"})

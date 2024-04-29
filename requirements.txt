@@ -1,5 +1,5 @@
 accelerate==0.21.0
-transformers==4.34
+transformers
 peft==0.4.0
 bitsandbytes==0.39.0
 loguru==0.7.0

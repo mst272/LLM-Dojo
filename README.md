@@ -19,11 +19,11 @@ Tips: 图片完全由AI生成
 
 ### 已支持模型
 - [Qwen](https://github.com/QwenLM/Qwen.git)
-  - [x] [QWEN Lora微调]
+  - [x] [QWEN Lora、Dora微调]
 
 ### 已支持tricks及原理讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
-- Dora
+- [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
 
 ## 🤓Quick Start
 不同的微调方法有不同的配置，但大体都是类似的。常规的参数在utils下的args.py。
@@ -52,4 +52,6 @@ LLM Dojo 期待你的加入！🪂
 ***
 
 **愉快学习！** 📘
+
+项目学习了优秀开源项目，感谢huggingface等国内小伙伴的开源项目
 ***
