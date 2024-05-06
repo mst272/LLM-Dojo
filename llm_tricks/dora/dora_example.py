@@ -206,7 +206,7 @@ if __name__ == '__main__':
     model_lora = copy.deepcopy(model)
     model_dora = copy.deepcopy(model)
 
-    # lora 训练
+    # lora_qlora 训练
     convert_lora_layers(model_lora)
     freeze_linear_layers(model_lora)
     model_lora.to(DEVICE)

@@ -45,7 +45,7 @@ if tokenizer.__class__.__name__ == 'QWenTokenizer':
     tokenizer.eos_token_id = tokenizer.eod_id
 
 # 数据
-data_file = './11.jsonl'
+data_file = './test.jsonl'
 train_dataset = QwenDataProcess(data_file, tokenizer, 512)
 data_collator = MyDataCollator(tokenizer, 512)
 

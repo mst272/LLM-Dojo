@@ -136,10 +136,3 @@ class CommonSingleRoundDataProcess(Dataset):
 
         return inputs
 
-
-class YiDataProcess(QwenDataProcess):
-    """
-    Yi 相关模型的数据处理格式
-    与Qwen相同
-    """
-    pass

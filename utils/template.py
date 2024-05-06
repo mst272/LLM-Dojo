@@ -47,11 +47,14 @@ register_template(
 )
 
 
-
-
-
-
-
+register_template(
+    template_name='yi',
+    system_format='<|im_start|>system\n{content}<|im_end|>\n',
+    user_format='<|im_start|>user\n{content}<|im_end|>\n<|im_start|>assistant\n',
+    assistant_format='{content}<|im_end|>\n',
+    system=None,
+    stop_word='<|im_end|>'
+)
 
 
 

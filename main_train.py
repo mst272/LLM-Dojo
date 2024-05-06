@@ -1,33 +1,47 @@
-import json
 import os
 from os.path import join
 from loguru import logger
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, \
+from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Trainer, \
     BitsAndBytesConfig, HfArgumentParser, set_seed
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 import bitsandbytes as bnb
 from utils.template import template_dict
 from utils.data_process import CommonSingleRoundDataProcess
 from utils.data_collator import SftDataCollator
-from train_args.sft.lora.qwen_lora import TrainArgument
 from utils.args import CommonArgs
+import importlib
+
+
+def load_config(train_args_path):
+    # 根据config_option加载相应的配置
+    module_path = train_args_path.replace("/", ".").rstrip(".py")
+    # 动态导入模块
+    module = importlib.import_module(module_path)
+    # 每个模块导入的类名均为TrainArgument
+    class_name = "TrainArgument"
+
+    # 使用getattr获取模块中的类
+    TrainArgument = getattr(module, class_name)
+    train_argument = TrainArgument()
+    return train_argument
 
 
 def initial_args():
-    parser = HfArgumentParser((CommonArgs, TrainArgument))
-    args, train_args = parser.parse_args_into_dataclasses()
+    # parser = HfArgumentParser((CommonArgs, TrainArgument))
+    # args, train_args = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((CommonArgs,))
+    args = parser.parse_args_into_dataclasses()[0]
+    # 根据CommonArgs中的config_option动态加载配置
+    train_args = load_config(args.train_args_path)
 
     if not os.path.exists(train_args.output_dir):
         os.mkdir(train_args.output_dir)
     logger.add(join(train_args.output_dir, 'train.log'))
     logger.info("train_args:{}".format(train_args))
+    logger.info("common_args:{}".format(train_args))
     set_seed(train_args.seed)
-    # 保存训练参数
-    with open(join(train_args.output_dir, 'train_args.json'), "w") as f:
-        json_str = json.dumps(train_args, default=lambda o: o.__dict__)
-        f.write(json_str)
 
     assert sum([train_args.fp16, train_args.bf16]) == 1, "only one of fp16 and bf16 can be True"
     return args, train_args
@@ -37,13 +51,13 @@ def find_all_linear_names(model, train_mode):
     """
     找出所有全连接层，为所有全连接添加adapter
     """
-    assert train_mode in ['lora', 'qlora']
+    assert train_mode in ['lora_qlora', 'qlora']
     cls = bnb.nn.Linear4bit if train_mode == 'qlora' else nn.Linear
     lora_module_names = set()
     for name, module in model.named_modules():
         if isinstance(module, cls):
             names = name.split('.')
-            lora_module_names.add(names[0] if len(names) == 1 else names[-1])
+            lora_module_names.add(names[-1])
 
     if 'lm_head' in lora_module_names:  # needed for 16-bit
         lora_module_names.remove('lm_head')
@@ -103,7 +117,7 @@ def create_model(args, train_args):
         # QLoRA: casts all the non int8 modules to full precision (fp32) for stability
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=train_args.gradient_checkpointing)
 
-    elif args.train_mode == 'lora':
+    elif args.train_mode == 'lora_qlora':
         # 是否使用dora
         model_kwargs.update(use_dora=args.use_dora)
 
