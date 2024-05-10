@@ -9,7 +9,7 @@ class TrainArgument(TrainingArguments):
     """
     训练参数, 直接在这里修改default即可
     """
-    output_dir: str = field(default='./out_qwen', metadata={"help": "模型训练完成后的保存路径"})
+    output_dir: str = field(default='./out_yi', metadata={"help": "模型训练完成后的保存路径"})
     num_train_epochs: int = field(default=1, metadata={"help": "训练轮次"})
     per_device_train_batch_size: int = field(default=2, metadata={"help": "训练的batch size"})
     gradient_checkpointing: bool = field(default=True, metadata={"help": "是否使用梯度累计"})

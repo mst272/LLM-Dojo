@@ -56,5 +56,23 @@ register_template(
     stop_word='<|im_end|>'
 )
 
+register_template(
+    template_name='gemma',
+    system_format=None,
+    user_format='<bos><start_of_turn>user\n{content}<end_of_turn>\n<start_of_turn>model\n',
+    assistant_format='{content}<end_of_turn>\n',
+    system=None,
+    stop_word='<end_of_turn>'
+)
+
+register_template(
+    template_name='phi-3',
+    system_format=None,
+    user_format='<s>user\n{content}<|end|>\n<|assistant|>\n',
+    assistant_format='{content}<|end|>\n',
+    system=None,
+    stop_word='<|end|>'
+)
+
 
 

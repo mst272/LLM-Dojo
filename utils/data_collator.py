@@ -27,9 +27,9 @@ class MyDataCollator(object):
                 continue
             padding_len = batch_length - len(input_ids)
             # 开始padding
-            input_ids = input_ids + [self.pad_token_id]*padding_len
-            attention_mask = attention_mask + [0]*padding_len
-            target_mask = target_mask + [0]*padding_len
+            input_ids = input_ids + [self.pad_token_id] * padding_len
+            attention_mask = attention_mask + [0] * padding_len
+            target_mask = target_mask + [0] * padding_len
             # 开始截断
             input_ids = input_ids[:self.max_len]
             attention_mask = attention_mask[:self.max_len]
@@ -44,15 +44,13 @@ class MyDataCollator(object):
         attention_mask_batch = torch.tensor(attention_mask_batch, dtype=torch.long)
         target_mask_batch = torch.tensor(target_mask_batch, dtype=torch.long)
 
-        labels = torch.where(target_mask_batch==1, input_ids_batch, -100)
+        labels = torch.where(target_mask_batch == 1, input_ids_batch, -100)
 
         return {
             'input_ids': input_ids_batch,
             'attention_mask': attention_mask_batch,
             'labels': labels
         }
-
-
 
 
 class SftDataCollator:
@@ -96,11 +94,10 @@ class SftDataCollator:
         target_mask_batch = torch.tensor(target_mask_batch, dtype=torch.long)
 
         # 计算损失时忽略
-        labels = torch.where(target_mask_batch==1, input_ids_batch, -100)
+        labels = torch.where(target_mask_batch == 1, input_ids_batch, -100)
         inputs = {
             'input_ids': input_ids_batch,
             'attention_mask': attention_mask_batch,
             'labels': labels
         }
         return inputs
-

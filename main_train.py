@@ -117,7 +117,7 @@ def create_model(args, train_args):
         # QLoRA: casts all the non int8 modules to full precision (fp32) for stability
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=train_args.gradient_checkpointing)
 
-    elif args.train_mode == 'lora_qlora':
+    elif args.train_mode == 'lora':
         # 是否使用dora
         model_kwargs.update(use_dora=args.use_dora)
 

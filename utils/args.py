@@ -16,6 +16,8 @@ class TrainMode(Enum):
 
 class TrainArgPath(Enum):
     SFT_LORA_QLORA_QWEN = 'train_args/sft/lora_qlora/qwen_lora.py'
+    SFT_LORA_QLORA_YI = 'train_args/sft/lora_qlora/yi_lora.py'
+    SFT_LORA_QLORA_BASE = 'train_args/sft/lora_qlora/base.py'
 
 
 @dataclass
@@ -23,11 +25,11 @@ class CommonArgs:
     """
     一些常用的自定义参数
     """
-    train_args_path: TrainArgPath = field(default=TrainArgPath.SFT_LORA_QLORA_QWEN, metadata={"help": "当前模式的训练参数"})
+    train_args_path: TrainArgPath = field(default=TrainArgPath.SFT_LORA_QLORA_BASE, metadata={"help": "当前模式的训练参数"})
     max_len: int = field(default=1024, metadata={"help": "最大输入长度"})
     train_data_path: Optional[str] = field(default='./', metadata={"help": "训练集路径"})
     model_name_or_path: str = field(default='./', metadata={"help": "下载的所需模型路径"})
-    template_name: TemplateName = field(default=TemplateName.QWEN, metadata={"help": "sft时的数据格式"})
+    template_name: TemplateName = field(default=TemplateName.QWEN, metadata={"help": "sft时的数据格式,即指定模型数据输入格式"})
 
     # 微调方法相关选择与配置
     train_mode: TrainMode = field(default=TrainMode.LORA, metadata={"help": "选择采用的训练方式：[qlora, lora]"})
