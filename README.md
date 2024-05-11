@@ -19,7 +19,7 @@ Tips: 图片完全由AI生成
 </details>
 
 ## 🍻 模型 Chat Template总结
-待更新
+ [Chat Template总结](./chat_template/README.md)
 
 ## 📊 项目规划及进展
 
@@ -39,21 +39,25 @@ Tips: 图片完全由AI生成
 
 ## 🤓Quick Start
 项目还在初始阶段， 目前仅支持单卡训练。建议使用Qlora。
-### Step1 配置args.py
+
+### 微调训练(FineTune)
+
+#### Step1 配置args.py
 不同的微调方法有不同的配置，但大体都是类似的。常规的参数在utils下的args.py。
 
 其中:
 > train_args_path：为Step2中需要配置的train_args路径
 
-### Step2 配置train_args文件夹下对应文件
+#### Step2 配置train_args文件夹下对应文件
 相关训练参数在train_args文件夹下对应的模型中。
 均是采用dataclass格式配置参数，直接在default中修改即可，即不需要直接命令行传输参数了(如果有小伙伴需要这种方式也可以补上)。
 
-### Step3 开始训练
+#### Step3 开始训练
 设置好相关配置后即可运行main_train.py进行训练
 ```sh
 python main_train.py
 ```
+### 推理(Infer)
 
 ## 😮训练数据
 待更新、、、、
