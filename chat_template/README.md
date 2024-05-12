@@ -44,3 +44,19 @@ This is a instruction<end_of_turn>
 This is a answer<end_of_turn>
 ```
 
+### Phi-3
+官方版本没有默认的system message, 有此需求可依据下述模板自己构建
+```text
+<s>user
+This is a instruction<end>
+<|assistant|>
+This is a answer<end>
+```
+
+### Deepseek
+官方同样没有提供默认system message，若有自己的system message可按下述构建
+```text
+<｜begin▁of▁sentence｜>This is a system message
+User:This is a instruction
+Assistant:This is a answer<｜end▁of▁sentence｜>
+```

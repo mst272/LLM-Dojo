@@ -6,16 +6,17 @@ Tips: 图片完全由AI生成
 ## 🌟 项目简介
 欢迎来到 LLM-Dojo，这里是一个开源大模型学习场所(最好的学习永远在项目中)，包括一个开源大模型训练框架，以及llm_tricks模块，其中包括各种大模型的tricks实现与原理讲解！
 主要内容如下：
-- ⛳ 支持各类模型的微调训练，包括Lora、Qlora、Dora等
+- ⛳ 开源大模型训练框架，代码主要集中在```utils```
 - ⛳ 提供最新LLM tricks的详细讲解及使用
 - ⛳ 整合当前主流模型的chat template 以方便微调查阅及使用(待更新)
 
 "Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 ## 📖 Latest News
+- [2024-05-13] 🚀 更新各大模型的Chat Template
+<details> <summary>More news...</summary>
+
 - [2024-05-06] 🚀 支持Qwen、Yi模型的Lora、Qlora、Dora微调
 - [2024-04-28] 🚀 更新dora微调原理示例、支持qwen模型微调
-<details> <summary>More news...</summary>
-待更新
 </details>
 
 ## 🍻 模型 Chat Template总结

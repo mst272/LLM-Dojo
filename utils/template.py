@@ -74,5 +74,8 @@ register_template(
     stop_word='<|end|>'
 )
 
+register_template(
+    template_name='deepseek',
+)
 
 
