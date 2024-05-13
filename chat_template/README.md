@@ -11,9 +11,15 @@
 - [Qwen](#qwen)
 - [Yi](#yi)
 - [Gemma](#gemma)
+- [Phi-3](#phi-3)
+- [DeepSeek](#deepseek)
 
 ## 说明
- 不同模型有的有默认的system message，有的没有，所以以官方是否有为标准。如果在自己训练模型的时候希望加上system message可以参照template模板自行添加
+ 不同模型在是否存在默认system message上有所不同(大多数模型都是没有的)，所以以官方是否有为标准。
+ 
+每个模型都附上了有system版本和无system版本，如果在自己训练模型的时候希望加上system message可以参照template模板自行添加。
+
+**(建议的做法是：如果官方没提供默认system message，可直接使用无system版本)**
 
 ### Qwen
 官方版本默认的system message即：You are a helpful assistant
@@ -27,7 +33,16 @@ This is a answer<|im_end|>
 ```
 
 ### Yi
-官方版本没有默认的system message，可以与llama一样不加system message使用
+官方版本没有默认的system message，可以与llama一样不加system message使用，有
+```text
+<|im_start|>system
+This is a system message<|im_end|>
+<|im_start|>user
+This is a instruction<|im_end|>
+<|im_start|>assistant
+This is a answer<|im_end|>
+```
+- 无system模式
 ```text
 <|im_start|>user
 This is a instruction<|im_end|>
@@ -36,7 +51,9 @@ This is a answer<|im_end|>
 ```
 
 ### Gemma
-官方版本没有默认的system message, 有此需求可依据下述模板自己构建
+官方版本不支持system
+
+- 无system模式
 ```text
 <bos><start_of_turn>user
 This is a instruction<end_of_turn>
@@ -46,17 +63,33 @@ This is a answer<end_of_turn>
 
 ### Phi-3
 官方版本没有默认的system message, 有此需求可依据下述模板自己构建
+
 ```text
-<s>user
+<s><|system|>
+This is a system message<|end|>
+<|user|>
+This is a instruction<end>
+<|assistant|>
+This is a answer<end>
+```
+- 无system模式
+```text
+<s><|user|>
 This is a instruction<end>
 <|assistant|>
 This is a answer<end>
 ```
 
 ### Deepseek
-官方同样没有提供默认system message，若有自己的system message可按下述构建
+官方同样没有提供默认system message，有此需求可依据下述模板自己构建
 ```text
 <｜begin▁of▁sentence｜>This is a system message
 User:This is a instruction
+Assistant:This is a answer<｜end▁of▁sentence｜>
+```
+
+- 无system模式
+```text
+<｜begin▁of▁sentence｜>User:This is a instruction
 Assistant:This is a answer<｜end▁of▁sentence｜>
 ```

@@ -4,11 +4,11 @@
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
-欢迎来到 LLM-Dojo，这里是一个开源大模型学习场所(最好的学习永远在项目中)，包括一个开源大模型训练框架，以及llm_tricks模块，其中包括各种大模型的tricks实现与原理讲解！
+欢迎来到 LLM-Dojo，这里是一个开源大模型学习场所(最好的学习永远在项目中)，包括一个每个人都可以以此为基础构建自己的开源大模型训练框架流程、包括各种大模型的tricks实现与原理讲解的llm_tricks模块、主流模型的chat template模版。
 主要内容如下：
-- ⛳ 开源大模型训练框架，代码主要集中在```utils```
-- ⛳ 提供最新LLM tricks的详细讲解及使用
-- ⛳ 整合当前主流模型的chat template 以方便微调查阅及使用(待更新)
+- ⛳ 1、开源大模型训练框架：每个人都可以根据本项目的代码学习及构建自己的开源大模型训练框架，细节代码主要集中在```utils```文件夹下，训练代码在```main_train.py```，各个部分的构建简洁清晰。
+- 🏓2、提供最新LLM tricks的详细讲解及使用：包括最新的微调方法及论文复现等，该模块主要集中在```llm_tricks```文件夹下。
+- ⚽ 3、提供主流模型chat template汇总：整合当前主流模型的chat template，以方便自己训练代码时数据处理及微调等操作，该模块主要集中在```chat_template```文件夹下。
 
 "Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 ## 📖 Latest News
@@ -21,6 +21,38 @@ Tips: 图片完全由AI生成
 
 ## 🍻 模型 Chat Template总结
  [Chat Template总结](./chat_template/README.md)
+
+在对模型进行微调操作时，数据的输入格式至关重要。
+
+因此，我从官方参考或实现中收集了主流模型的官方模板，都包含在上述文档中，以供大家自己进行微调时参考。
+
+***以下是部分示例：***
+### Qwen
+
+官方版本默认的system message即：You are a helpful assistant
+```text
+<|im_start|>system
+You are a helpful assistant<|im_end|>
+<|im_start|>user
+This is a instruction<|im_end|>
+<|im_start|>assistant
+This is a answer<|im_end|>
+```
+
+### DeepSeek：
+
+官方同样没有提供默认system message，有此需求可依据下述模板自己构建
+```text
+<｜begin▁of▁sentence｜>This is a system message
+User:This is a instruction
+Assistant:This is a answer<｜end▁of▁sentence｜>
+```
+
+- 无system模式
+```text
+<｜begin▁of▁sentence｜>User:This is a instruction
+Assistant:This is a answer<｜end▁of▁sentence｜>
+```
 
 ## 📊 项目规划及进展
 
