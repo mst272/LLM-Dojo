@@ -93,7 +93,12 @@ python main_train.py
 ### 推理(Infer)
 
 ## 😮训练数据
-待更新、、、、
+本框架采用的数据格式为***jsonl***形式，```instruction```代表输入，```output```代表输出
+
+示例如下:
+```json lines
+{"instruction":"将这个句子改写成将来时态：“太阳将会照耀明亮。”","output":"太阳将会散发温暖的光芒。"}
+```
 
 ## 🤝 社区参与
 LLM Dojo 期待你的加入！🪂
