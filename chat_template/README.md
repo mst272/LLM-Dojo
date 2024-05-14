@@ -93,3 +93,10 @@ Assistant:This is a answer<｜end▁of▁sentence｜>
 <｜begin▁of▁sentence｜>User:This is a instruction
 Assistant:This is a answer<｜end▁of▁sentence｜>
 ```
+
+### Mistral
+没有提供system模式
+- 无system模式
+```text
+<s>[INST]:This is a instruction [/INST]This is a answer</s>
+```

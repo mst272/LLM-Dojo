@@ -57,7 +57,7 @@ Assistant:This is a answer<｜end▁of▁sentence｜>
 ## 📊 项目规划及进展
 
 ### 已支持模型
-- [Qwen](https://github.com/QwenLM/Qwen.git)
+- [Qwen(Qwen1.5)](https://github.com/QwenLM/Qwen.git)
   - [x] [QWEN Lora、Qlora、Dora微调]
 - [Yi](https://github.com/01-ai/Yi)
   - [x] [Yi Lora、Qlora、Dora微调]

@@ -76,6 +76,20 @@ register_template(
 
 register_template(
     template_name='deepseek',
+    system_format=None,
+    user_format='<｜begin▁of▁sentence｜>User: {content}\nAssistant\n',
+    assistant_format='{content}<｜end▁of▁sentence｜>\n',
+    system=None,
+    stop_word='<｜end▁of▁sentence｜>'
+)
+
+register_template(
+    template_name='mistral',
+    system_format=None,
+    user_format='<s>[INST] {content} [/INST]',
+    assistant_format='{content}</s>',
+    system=None,
+    stop_word='</s>'
 )
 
 

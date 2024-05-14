@@ -74,14 +74,13 @@ def create_tokenizer(args):
                                               )
 
     # QWenTokenizer比较特殊，pad_token_id、bos_token_id、eos_token_id均为None。eod_id对应的token为<|endoftext|>
-    if tokenizer.__class__.__name__ == 'QWenTokenizer':
+    if tokenizer.__class__.__name__ == 'QWenTokenizer' or tokenizer.__class__.__name__ == 'Qwen2Tokenizer':
         tokenizer.pad_token_id = tokenizer.eod_id
         tokenizer.bos_token_id = tokenizer.eod_id
         tokenizer.eos_token_id = tokenizer.eod_id
 
     assert tokenizer.pad_token_id is not None, "pad_token_id should not be None"
     assert tokenizer.eos_token_id is not None, "eos_token_id should not be None"
-    assert tokenizer.bos_token_id is not None, "bos_token_id should not be None"
     logger.info(f'vocab_size of tokenizer: {tokenizer.vocab_size}')
 
     return tokenizer
