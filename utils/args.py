@@ -7,6 +7,10 @@ from enum import Enum
 class TemplateName(Enum):
     QWEN = 'qwen'
     YI = 'yi'
+    GEMMA = 'gemma'
+    PHI_3 = 'phi-3'
+    DEEPSEEK = 'deepseek'
+    MISTRAL = 'mistral'
 
 
 class TrainMode(Enum):
@@ -25,7 +29,8 @@ class CommonArgs:
     """
     一些常用的自定义参数
     """
-    train_args_path: TrainArgPath = field(default=TrainArgPath.SFT_LORA_QLORA_BASE, metadata={"help": "当前模式的训练参数"})
+    train_args_path: TrainArgPath = field(default=TrainArgPath.SFT_LORA_QLORA_BASE, metadata={"help": "当前模式的训练参数,"
+                                                                                                      "一般选base即可"})
     max_len: int = field(default=1024, metadata={"help": "最大输入长度"})
     train_data_path: Optional[str] = field(default='./', metadata={"help": "训练集路径"})
     model_name_or_path: str = field(default='./', metadata={"help": "下载的所需模型路径"})

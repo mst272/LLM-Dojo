@@ -57,14 +57,17 @@ Assistant:This is a answer<｜end▁of▁sentence｜>
 ## 📊 项目规划及进展
 
 ### 已支持模型
+Lora、Qlora、Dora微调:
 - [Qwen(Qwen1.5)](https://github.com/QwenLM/Qwen.git)
-  - [x] [QWEN Lora、Qlora、Dora微调]
+  - [x] [QWEN]
 - [Yi](https://github.com/01-ai/Yi)
-  - [x] [Yi Lora、Qlora、Dora微调]
+  - [x] [Yi]
 - [Gemma](https://github.com/google/gemma_pytorch)
-  - [x] [Gemma Lora、Qlora、Dora微调]
+  - [x] [Gemma]
 - [Phi-3](https://huggingface.co/microsoft/Phi-3-mini-128k-instruct)
-  - [x] [Phi-3 Lora、Qlora、Dora微调]
+  - [x] [Phi-3]
+- [Deepseek](https://github.com/deepseek-ai/DeepSeek-LLM)
+  - [x] [Deepseek]
 
 ### 已支持tricks及原理讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
