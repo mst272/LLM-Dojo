@@ -13,6 +13,7 @@
 - [Gemma](#gemma)
 - [Phi-3](#phi-3)
 - [DeepSeek](#deepseek)
+- [Mistral](#mistral)
 
 ## 说明
  不同模型在是否存在默认system message上有所不同(大多数模型都是没有的)，所以以官方是否有为标准。
