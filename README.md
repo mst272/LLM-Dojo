@@ -72,6 +72,7 @@ Lora、Qlora、Dora微调:
 ### 已支持tricks及原理讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
+- [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
 
 ## 🤓Quick Start
 项目还在初始阶段， 目前仅支持单卡训练。建议使用Qlora。
