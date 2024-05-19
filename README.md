@@ -75,6 +75,9 @@ Lora、Qlora、Dora微调:
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
 - [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
 
+ 技术发文：
+- [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
+
 ## 🤓Quick Start
 目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**
 
@@ -104,7 +107,7 @@ python main_train.py
 🙃Deepspeed单卡或多卡启动：
 
 使用Deepspeed训练时前两步与常规相同，但需要额外配置ds_config文件，项目中已给出常用的配置示例，位于```train_args/deepspeed_config/```路径下，
-更详细的Deepspeed原理及解释可以看文章：
+更详细的Deepspeed原理及解释可以看文章：[Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
 
 运行以下命令启动：
 ```bash
