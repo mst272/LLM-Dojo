@@ -131,8 +131,6 @@ LLM Dojo 期待你的加入！🪂
 无论是提出问题（Issue）还是贡献代码（Pull Request），都是对项目的巨大支持。
 
 ## 💌 联系方式
-- GitHub: LLM-Dojo
-- Gitter: mst272
 - Email: sdwzh272@163.com
 
 ***
