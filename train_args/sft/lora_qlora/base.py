@@ -21,9 +21,9 @@ class TrainArgument(TrainingArguments):
     logging_steps: int = field(default=100, metadata={"help": "打印的步长"})
     save_steps: int = field(default=500, metadata={"help": "多少步长保存一次"})
     evaluation_strategy: Union[IntervalStrategy, str] = field(default="no", metadata={"help": "The evaluation "
-                                                                                                 "strategy to use."},)
+                                                                                              "strategy to use."}, )
     save_strategy: Union[IntervalStrategy, str] = field(default="epoch", metadata={"help": "The checkpoint save "
-                                                                                           "strategy to use."},)
+                                                                                           "strategy to use."}, )
     save_total_limit: Optional[int] = field(default=2, metadata={"help": "If a value is passed, will limit the total "
                                                                          "amount of checkpoints. Deletes the older "
                                                                          "checkpoints in"})
@@ -42,7 +42,9 @@ class TrainArgument(TrainingArguments):
         "help": ("Whether to use bf16 (mixed) precision instead of 32-bit. Requires Ampere or higher NVIDIA"
                  " architecture or using CPU (use_cpu) or Ascend NPU. This is an experimental API and it may change."
                  )
-        })
+    })
     fp16: bool = field(default=False, metadata={"help": "Whether to use fp16 (mixed) precision instead of 32-bit"})
 
-    deepspeed: str = '/home/nlp/wzh/LLM-Dojo/train_args/config_zero2.json'
+    # Deepspeed训练相关参数，不使用时设置为default=None
+    deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json', metadata={"help": "启用Deepspeed时需要的config文件"})
+

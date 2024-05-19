@@ -20,7 +20,6 @@ class TrainMode(Enum):
 
 class TrainArgPath(Enum):
     SFT_LORA_QLORA_QWEN = 'train_args/sft/lora_qlora/qwen_lora.py'
-    SFT_LORA_QLORA_YI = 'train_args/sft/lora_qlora/yi_lora.py'
     SFT_LORA_QLORA_BASE = 'train_args/sft/lora_qlora/base.py'
 
 
@@ -29,6 +28,9 @@ class CommonArgs:
     """
     一些常用的自定义参数
     """
+    # Deepspeed相关参数
+    local_rank: int = field(default=1, metadata={"help": "deepspeed所需参数,单机无需修改"})
+
     train_args_path: TrainArgPath = field(default=TrainArgPath.SFT_LORA_QLORA_BASE, metadata={"help": "当前模式的训练参数,"
                                                                                                       "一般选base即可"})
     max_len: int = field(default=1024, metadata={"help": "最大输入长度"})
@@ -41,7 +43,7 @@ class CommonArgs:
     use_dora: bool = field(default=False, metadata={"help": "仅在train_mode==lora时可以使用。是否使用Dora(一个基于lora的变体) "
                                                             "目前只支持linear and Conv2D layers."})
 
-    task_type: str = field(default="sft", metadata={"help": "预训练任务：[pretrain, sft, dpo]"})
+    task_type: str = field(default="sft", metadata={"help": "预训练任务：[pretrain, sft, dpo]，目前仅支持sft"})
 
     # lora相关配置
     lora_rank: Optional[int] = field(default=64, metadata={"help": "lora rank"})

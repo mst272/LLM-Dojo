@@ -12,6 +12,7 @@ Tips: 图片完全由AI生成
 
 "Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 ## 📖 Latest News
+- [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora等训练！！(即将增加全量训练)
 - [2024-05-13] 🚀 更新各大模型的Chat Template
 <details> <summary>More news...</summary>
 
@@ -75,9 +76,11 @@ Lora、Qlora、Dora微调:
 - [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
 
 ## 🤓Quick Start
-项目还在初始阶段， 目前仅支持单卡训练。建议使用Qlora。
+目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**
 
-### 微调训练(FineTune)
+所有方式均支持Qlora、Lora、Dora方法。
+
+### SFT微调(FineTune)
 
 #### Step1 配置args.py
 不同的微调方法有不同的配置，但大体都是类似的。常规的参数在utils下的args.py。
@@ -86,14 +89,29 @@ Lora、Qlora、Dora微调:
 > train_args_path：为Step2中需要配置的train_args路径
 
 #### Step2 配置train_args文件夹下对应文件
-相关训练参数在train_args文件夹下对应的模型中。
+相关训练参数在train_args文件夹下对应的文件中。一般就是用```base.py```即可
 均是采用dataclass格式配置参数，直接在default中修改即可，即不需要直接命令行传输参数了(如果有小伙伴需要这种方式也可以补上)。
 
 #### Step3 开始训练
+
+😶Python命令单卡启动：
+
 设置好相关配置后即可运行main_train.py进行训练
-```sh
+```bash
 python main_train.py
 ```
+
+🙃Deepspeed单卡或多卡启动：
+
+使用Deepspeed训练时前两步与常规相同，但需要额外配置ds_config文件，项目中已给出常用的配置示例，位于```train_args/deepspeed_config/```路径下，
+更详细的Deepspeed原理及解释可以看文章：
+
+运行以下命令启动：
+```bash
+deepspeed --include localhost:6,7 main_train.py
+```
+其中```include localhost```参数用于选择训练的GPU，可选单卡也可选多卡。
+
 ### 推理(Infer)
 
 ## 😮训练数据
