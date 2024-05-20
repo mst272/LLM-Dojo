@@ -83,13 +83,5 @@ register_template(
     stop_word='<｜end▁of▁sentence｜>'
 )
 
-register_template(
-    template_name='mistral',
-    system_format=None,
-    user_format='<s>[INST] {content} [/INST]',
-    assistant_format='{content}</s>',
-    system=None,
-    stop_word='</s>'
-)
 
 
