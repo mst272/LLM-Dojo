@@ -95,8 +95,8 @@ def create_model(args, train_args):
         trust_remote_code=True,
         torch_dtype=torch_dtype,
         use_cache=False if train_args.gradient_checkpointing else True,  # The cache is only used for generation,
-        # not for training.
-        device_map='auto'
+        # fix bug
+        # device_map='auto'
     )
 
     def load_model(model_kwargs):
