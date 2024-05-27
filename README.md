@@ -115,6 +115,15 @@ deepspeed --include localhost:6,7 main_train.py
 ```
 其中```include localhost```参数用于选择训练的GPU，可选单卡也可选多卡。
 
+显存占用测试如下：
+
+| 策略         | 模型大小     | 显存占用 |
+|------------|----------|------|
+| Lora       | Qwen（7B） | 26g  |
+| Lora+Zero2 | Qwen（7B） | 26g  |
+| Lora+zero3 | Qwen（7B） | 16g  |
+
+
 ### 推理(Infer)
 
 ## 😮训练数据
