@@ -75,10 +75,11 @@ Lora、Qlora、Dora微调:
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
 - [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
-- [从头实现MOE](https://github.com/mst272/simple-lora-plus)
+- [从零实现MOE](./llm_tricks/moe/READEME.md)
 
  技术发文：
 - [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
+- [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
 
 ## 🤓Quick Start
 目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**

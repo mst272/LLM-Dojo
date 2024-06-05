@@ -4,4 +4,4 @@
 
 ## 😸技术博客链接
 
-- [从零构建一个MOE](https://zhuanlan.zhihu.com/p/695269522)
+- [从零构建一个MOE](https://zhuanlan.zhihu.com/p/701777558)
