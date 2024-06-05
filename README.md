@@ -12,6 +12,7 @@ Tips: 图片完全由AI生成
 
 "Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 ## 📖 Latest News
+- [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
 - [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora等训练！！(即将增加全量训练)
 - [2024-05-13] 🚀 更新各大模型的Chat Template
 <details> <summary>More news...</summary>
@@ -74,6 +75,7 @@ Lora、Qlora、Dora微调:
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
 - [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
+- [从头实现MOE](https://github.com/mst272/simple-lora-plus)
 
  技术发文：
 - [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
