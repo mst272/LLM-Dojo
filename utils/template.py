@@ -83,5 +83,36 @@ register_template(
     stop_word='<｜end▁of▁sentence｜>'
 )
 
+register_template(
+    template_name='minicpm',
+    system_format=None,
+    user_format='<用户>{content}<AI>',
+    assistant_format='{content}</s>',
+    system=None,
+    stop_word='</s>'
+)
 
+register_template(
+    template_name='llama2',
+    system_format='<s>[INST] <<SYS>>\n{content}\n<</SYS>>\n',
+    user_format='{content}[/INST]',
+    assistant_format='{content} </s>',
+    system="You are a helpful, respectful and honest assistant. "
+        "Always answer as helpfully as possible, while being safe. "
+        "Your answers should not include any harmful, unethical, "
+        "racist, sexist, toxic, dangerous, or illegal content. "
+        "Please ensure that your responses are socially unbiased and positive in nature.\n\n"
+        "If a question does not make any sense, or is not factually coherent, "
+        "explain why instead of answering something not correct. "
+        "If you don't know the answer to a question, please don't share false information.",
+    stop_word='</s>'
+)
 
+register_template(
+    template_name='llama3',
+    system_format='<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{content}<|eot_id|>',
+    user_format='<|start_header_id|>user<|end_header_id|>\n\n{content}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n',
+    assistant_format='{content}<|eot_id|>',
+    system=None,
+    stop_word='<|eot_id|>'
+)
