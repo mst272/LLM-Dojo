@@ -10,9 +10,10 @@
 
 ## 补充
 
-博客中没提到的一点是 Expert Capacity。大概意思就是为了防止所有tokens都被一个或几个expert处理，我们需要设置一个专家容量。如果某个专家处理超过容量的tokens后就会给他截断，下面给出一个简单的代码示例，实际生产中会有更高级复杂的策略。
+博客中没提到的一点是 Expert Capacity。大概意思就是为了防止所有tokens都被一个或几个expert处理，我们需要设置一个专家容量。如果某个专家处理超过容量的tokens后就会给他截断，下面给出一个简单的代码示例，实际生产中会有更高级复杂的策略,
 例如在https://arxiv.org/abs/2101.03961 中讨论的switch transformer架构。
-代码如下，与我们技术博客中讲的SparseMoE基本相同，只是加了两个部分，在代码注释中也已标明。
+
+我们简单的介绍代码如下，与我们技术博客中讲的SparseMoE基本相同，只是加了两个部分，在代码注释中也已标明。
 ```python
 class SparseMoE(nn.Module):
     def __init__(self, n_embed, num_experts, top_k, capacity_factor=1.0):
