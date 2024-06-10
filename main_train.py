@@ -8,10 +8,12 @@ from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Traine
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 import bitsandbytes as bnb
 from utils.template import template_dict
-from utils.data_process import CommonSingleRoundDataProcess
+from utils.data_process import CommonSingleRoundDataProcess, DpoDataset
 from utils.data_collator import SftDataCollator
 from utils.args import CommonArgs
 import importlib
+from datasets import load_dataset
+from trl import DPOTrainer
 
 
 def load_config(train_args_path):
@@ -113,8 +115,9 @@ def create_model(args, train_args):
         )
         model_kwargs.update(quantization_config=quantization_config)
         model = load_model(model_kwargs)
-        # QLoRA: casts all the non int8 modules to full precision (fp32) for stability
-        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=train_args.gradient_checkpointing)
+        if args.task_type in ['pretrain', 'sft']:  # 如果是dpo的话就不执行
+            # QLoRA: casts all the non int8 modules to full precision (fp32) for stability
+            model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=train_args.gradient_checkpointing)
 
     elif args.train_mode == 'lora':
         # 是否使用dora
@@ -125,20 +128,24 @@ def create_model(args, train_args):
             # 不加可能报错
             model.enable_input_require_grads()
 
-    # peft_config配置
-    target_modules = find_all_linear_names(model, args.train_mode)
-    peft_config = LoraConfig(
-        r=args.lora_rank,
-        lora_alpha=args.lora_alpha,
-        target_modules=target_modules,
-        lora_dropout=args.lora_dropout,
-        task_type=TaskType.CAUSAL_LM,
-    )
+    if args.train_mode == 'full':
+        peft_config = None
+    else:
+        # peft_config配置
+        target_modules = find_all_linear_names(model, args.train_mode)
+        peft_config = LoraConfig(
+            r=args.lora_rank,
+            lora_alpha=args.lora_alpha,
+            target_modules=target_modules,
+            lora_dropout=args.lora_dropout,
+            task_type=TaskType.CAUSAL_LM,
+        )
 
     # peft_model 配置
-    model = get_peft_model(model, peft_config)
-    logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
-    model.print_trainable_parameters()
+    if args.train_mode in ['lora', 'qlora'] and args.task_type in ['pretrain', 'sft']:
+        model = get_peft_model(model, peft_config)
+        logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
+        model.print_trainable_parameters()
 
     # 计算模型参数量
     total = sum(p.numel() for p in model.parameters())
@@ -146,7 +153,7 @@ def create_model(args, train_args):
 
     return {
         'model': model,
-        'peft_config': peft_config
+        'peft_config': peft_config,
     }
 
 
@@ -157,6 +164,30 @@ def load_sft_dataset(args, tokenizer):
     logger.info('Loading data with CommonSingleRoundDataProcess')
     train_dataset = CommonSingleRoundDataProcess(args.train_data_path, tokenizer, args.max_len, template)
     return train_dataset
+
+
+def load_dpo_dataset(args, tokenizer):
+    if args.template_name not in template_dict.keys():
+        raise Exception(f"template_name doesn't exist, all template_name: {template_dict.keys()}")
+    template = template_dict[args.template_name]
+    # 官方dpo方法，一般情况下推荐使用这个，而且按照数据格式进行处理，多轮也可改为单轮。
+    if args.task_type == 'dpo_multi':
+        if tokenizer.chat_template is None:
+            tokenizer.chat_template = "{% for message in messages %}{{message['role'] + ': ' + message['content'] + '\n\n'}}{% endfor %}{{ eos_token }}"
+        train_dataset = load_dataset(data_files=args.train_data_path, path='json')
+
+        def process(row):
+            row["chosen"] = tokenizer.apply_chat_template(row["chosen"], tokenize=False)
+            row["rejected"] = tokenizer.apply_chat_template(row["rejected"], tokenize=False)
+            return row
+
+        train_dataset = train_dataset.map(process)
+        train_dataset = train_dataset['train']
+        return train_dataset
+    # 使用自己构建的dpo dataset，用于自己科研或魔改使用。
+    elif args.task_type == 'dpo_single':
+        train_dataset = DpoDataset(args.train_data_path, tokenizer, args.max_len, args.max_prompt_length, template)
+        return train_dataset
 
 
 def create_trainer(args, train_args):
@@ -171,15 +202,27 @@ def create_trainer(args, train_args):
         data_collator = SftDataCollator(tokenizer, args.max_len)
     elif args.task_type == 'pretrain':
         pass
-    else:
-        pass
+    elif args.task_type == 'dpo_multi' or args.task_type == 'dpo_single':
+        train_dataset = load_dpo_dataset(args, tokenizer)
+        data_collator = None
 
-    trainer = Trainer(
-        model=model,
-        args=train_args,
-        train_dataset=train_dataset,
-        data_collator=data_collator
-    )
+    # sft or pretrain
+    if args.task_type == 'sft' or args.task_type == 'pretrain':
+        trainer = Trainer(
+            model=model,
+            args=train_args,
+            train_dataset=train_dataset,
+            data_collator=data_collator
+        )
+    else:
+        trainer = DPOTrainer(
+            model,
+            ref_model=None,
+            args=train_args,
+            train_dataset=train_dataset,
+            tokenizer=tokenizer,
+            peft_config=peft_config
+        )
 
     return trainer
 

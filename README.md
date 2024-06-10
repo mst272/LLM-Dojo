@@ -12,11 +12,12 @@ Tips: 图片完全由AI生成
 
 "Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 ## 📖 Latest News
+- [2024-06-9] 🚀支持DPO训练，分为单轮对话DPO(自己构建，方便魔改)和多轮对话DPO(简洁实现)，具体介绍可见
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
 - [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora等训练！！(即将增加全量训练)
-- [2024-05-13] 🚀 更新各大模型的Chat Template
 <details> <summary>More news...</summary>
 
+- [2024-05-13] 🚀 更新各大模型的Chat Template
 - [2024-05-06] 🚀 支持Qwen、Yi模型的Lora、Qlora、Dora微调
 - [2024-04-28] 🚀 更新dora微调原理示例、支持qwen模型微调
 </details>
@@ -82,6 +83,8 @@ Lora、Qlora、Dora微调:
 - [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
 
 ## 🤓Quick Start
+包括SFT和DPO。
+
 目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**
 
 所有方式均支持Qlora、Lora、Dora方法。
@@ -89,7 +92,9 @@ Lora、Qlora、Dora微调:
 ### SFT微调(FineTune)
 
 #### Step1 配置args.py
-不同的微调方法有不同的配置，但大体都是类似的。常规的参数在utils下的args.py。
+不同的微调方法有不同的配置，但大体都是类似的，基本默认设置即可，你只需要改一下模型路径、输出路径等等。
+
+常规的参数在utils下的args.py。
 
 其中:
 > train_args_path：为Step2中需要配置的train_args路径
@@ -126,16 +131,20 @@ deepspeed --include localhost:6,7 main_train.py
 | Lora+Zero2 | Qwen（7B） | 26g  |
 | Lora+zero3 | Qwen（7B） | 16g  |
 
+### DPO
+目前区分single_dpo和multi_dpo模式，前者是自己实现dataset并映射，以供大家魔改使用。 后者采用官方示例，故建议
 
 ### 推理(Infer)
 
 ## 😮训练数据
-本框架采用的数据格式为***jsonl***形式，```instruction```代表输入，```output```代表输出
+本框架采用的SFT数据格式为***jsonl***形式，```instruction```代表输入，```output```代表输出
 
 示例如下:
 ```json lines
 {"instruction":"将这个句子改写成将来时态：“太阳将会照耀明亮。”","output":"太阳将会散发温暖的光芒。"}
 ```
+
+对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
 
 ## 🤝 社区参与
 LLM Dojo 期待你的加入！🪂
