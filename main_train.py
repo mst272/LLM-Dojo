@@ -53,7 +53,7 @@ def find_all_linear_names(model, train_mode):
     """
     找出所有全连接层，为所有全连接添加adapter
     """
-    assert train_mode in ['lora_qlora', 'qlora']
+    assert train_mode in ['lora', 'qlora']
     cls = bnb.nn.Linear4bit if train_mode == 'qlora' else nn.Linear
     lora_module_names = set()
     for name, module in model.named_modules():
@@ -76,10 +76,13 @@ def create_tokenizer(args):
                                               )
 
     # QWenTokenizer比较特殊，pad_token_id、bos_token_id、eos_token_id均为None。eod_id对应的token为<|endoftext|>
-    if tokenizer.__class__.__name__ == 'QWenTokenizer' or tokenizer.__class__.__name__ == 'Qwen2Tokenizer':
+    if tokenizer.__class__.__name__ == 'QWenTokenizer':
         tokenizer.pad_token_id = tokenizer.eod_id
         tokenizer.bos_token_id = tokenizer.eod_id
         tokenizer.eos_token_id = tokenizer.eod_id
+    if tokenizer.bos_token is None:   # qwen没有bos_token，要设置一下，不然dpo train时会报错。
+        tokenizer.add_special_tokens({"bos_token": tokenizer.eos_token})
+        tokenizer.bos_token_id = tokenizer.eos_token_id
 
     assert tokenizer.pad_token_id is not None, "pad_token_id should not be None"
     assert tokenizer.eos_token_id is not None, "eos_token_id should not be None"
@@ -120,9 +123,6 @@ def create_model(args, train_args):
             model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=train_args.gradient_checkpointing)
 
     elif args.train_mode == 'lora':
-        # 是否使用dora
-        model_kwargs.update(use_dora=args.use_dora)
-
         model = load_model(model_kwargs)
         if hasattr(model, 'enable_input_require_grads'):
             # 不加可能报错
@@ -139,6 +139,7 @@ def create_model(args, train_args):
             target_modules=target_modules,
             lora_dropout=args.lora_dropout,
             task_type=TaskType.CAUSAL_LM,
+            use_dora=args.use_dora
         )
 
     # peft_model 配置

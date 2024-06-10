@@ -1,6 +1,6 @@
 accelerate==0.21.0
 transformers
-peft==0.4.0
+peft
 bitsandbytes==0.39.0
 loguru==0.7.0
 numpy==1.21.4
@@ -17,3 +17,4 @@ scipy
 torch==1.13.1
 flash_attn
 datasets
+trl

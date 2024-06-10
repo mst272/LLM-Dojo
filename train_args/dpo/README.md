@@ -1,5 +1,7 @@
 # 关于DPO训练
-目前分为两个模式，分别是multi_dpo和single_dpo。**推荐一般使用multi_dpo**
+目前分为两个模式，分别是multi_dpo和single_dpo。**推荐一般使用multi_dpo**。
+
+DPO训练方式均支持框架中的deepspeed或者python启动模式，相应的lora、qlora也支持。
 
 区别在于两种方式的数据组织形式，前者是使用DPOTrainer自动进行数据处理，且是多轮对话形式，参照格式也可将其改为单轮对话，故前者是单轮与多轮通用的。
 
@@ -17,6 +19,7 @@
 自己构建的single_dpo数据格式代码在```utils/data_process.py```文件中的```DpoDataset```类。
 
 参照官方构建的数据格式在```mian_train.py```中的```load_dpo_dataset```函数里。
+
 
 ## 技术文章
 
