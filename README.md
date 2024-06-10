@@ -12,7 +12,8 @@ Tips: 图片完全由AI生成
 
 "Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 ## 📖 Latest News
-- [2024-06-9] 🚀支持DPO训练，分为单轮对话DPO(自己构建，方便魔改)和多轮对话DPO(简洁实现)，具体介绍可见
+- [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
+- [2024-06-9] 🚀支持DPO训练，分为单轮对话DPO(自己构建，方便魔改)和多轮对话DPO(简洁实现)，具体介绍可见 [DPO使用说明](./train_args/dpo/README.md)
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
 - [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora等训练！！(即将增加全量训练)
 <details> <summary>More news...</summary>
@@ -78,9 +79,10 @@ Lora、Qlora、Dora微调:
 - [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
 - [从零实现MOE](./llm_tricks/moe/READEME.md)
 
- 技术发文：
+### 技术发文
 - [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
 - [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
+- [一步一步实现Transformer代码](https://medium.com/@sdwzh2725/transformer-code-step-by-step-understandingtransformer-d2ea773f15fa)
 
 ## 🤓Quick Start
 包括SFT和DPO。
