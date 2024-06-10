@@ -83,6 +83,7 @@ Lora、Qlora、Dora微调:
 - [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
 - [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
 - [一步一步实现Transformer代码](https://medium.com/@sdwzh2725/transformer-code-step-by-step-understandingtransformer-d2ea773f15fa)
+- [DPO训练QWEN2及魔改DPO实现](https://zhuanlan.zhihu.com/p/702569978)
 
 ## 🤓Quick Start
 包括SFT和DPO。
@@ -134,7 +135,8 @@ deepspeed --include localhost:6,7 main_train.py
 | Lora+zero3 | Qwen（7B） | 16g  |
 
 ### DPO
-目前区分single_dpo和multi_dpo模式，前者是自己实现dataset并映射，以供大家魔改使用。 后者采用官方示例，故建议
+目前区分single_dpo和multi_dpo模式，前者是自己实现dataset并映射，以供大家魔改使用。 
+后者采用官方示例，故建议使用后者。具体使用说明可见：[DPO使用说明](./train_args/dpo/README.md)
 
 ### 推理(Infer)
 

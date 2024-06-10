@@ -22,12 +22,12 @@ DPO训练方式均支持框架中的deepspeed或者python启动模式，相应�
 
 
 ## 技术文章
-
+- [DPO训练QWEN2及魔改DPO实现](https://zhuanlan.zhihu.com/p/702569978)
 
 
 ## DPO quick start
 ### Step1 配置args.py
-常规的参数在utils下的args.py，基本默认设置即可，你只需要改一下模型路径、输出路径等等。
+常规的参数在utils下的args.py，基本默认设置即可，你只需要改一下模型路径、输出路径、task_type、template_name、train_data_path、train_args_path、train_mode等。
 
 使用multi_dpo时args.py中的max_len和max_prompt_length参数是没用的，需要在后面的dpo_config.py中设置
 
@@ -39,7 +39,7 @@ DPO训练方式均支持框架中的deepspeed或者python启动模式，相应�
 
 均是采用dataclass格式配置参数，直接在default中修改即可，即不需要直接命令行传输参数了(如果有小伙伴需要这种方式也可以补上)。
 
-在这里修改max_len和max_prompt_length参数。
+在这里修改max_len和max_prompt_length参数，其他需要设置的是是否选择deepspeed模式训练等参数
 
 ### Step3 开始训练
 
