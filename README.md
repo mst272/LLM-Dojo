@@ -1,6 +1,6 @@
 
 # LLM-Dojo: 大模型修炼道场 😊
-<img src="pic/pic.jpg" width="500">
+<img src="pic/pic.jpg" width="300">
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
@@ -62,17 +62,15 @@ Assistant:This is a answer<｜end▁of▁sentence｜>
 
 ### 已支持模型
 Lora、Qlora、Dora微调:
-- [Qwen(Qwen1.5)](https://github.com/QwenLM/Qwen.git)
-  - [x] [QWEN]
-- [Yi](https://github.com/01-ai/Yi)
-  - [x] [Yi]
-- [Gemma](https://github.com/google/gemma_pytorch)
-  - [x] [Gemma]
-- [Phi-3](https://huggingface.co/microsoft/Phi-3-mini-128k-instruct)
-  - [x] [Phi-3]
-- [Deepseek](https://github.com/deepseek-ai/DeepSeek-LLM)
-  - [x] [Deepseek]
 
+- [x] [Qwen(Qwen1.5/Qwen2)](https://github.com/QwenLM/Qwen.git)
+- [x] [Yi](https://github.com/01-ai/Yi)
+- [x] [Gemma](https://github.com/google/gemma_pytorch)
+- [x] [Phi-3](https://huggingface.co/microsoft/Phi-3-mini-128k-instruct)
+- [x] [Deepseek](https://github.com/deepseek-ai/DeepSeek-LLM)
+- [x] [MiniCPM](https://github.com/OpenBMB/MiniCPM)
+- [x] [Llama系列](https://github.com/meta-llama/llama3)
+- 待更新GLM、baichuan
 ### 已支持tricks及原理讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)

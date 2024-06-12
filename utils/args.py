@@ -10,6 +10,9 @@ class TemplateName(Enum):
     GEMMA = 'gemma'
     PHI_3 = 'phi-3'
     DEEPSEEK = 'deepseek'
+    MINICPM = 'minicpm'
+    LLAMA2 = 'llama2'
+    LLAMA3 = 'llama3'
 
 
 class TrainMode(Enum):

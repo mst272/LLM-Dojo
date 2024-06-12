@@ -14,6 +14,9 @@
 - [Phi-3](#phi-3)
 - [DeepSeek](#deepseek)
 - [Mistral](#mistral)
+- [llama2](#llama2)
+- [llama3](#llama3)
+- [MiniCPM](#minicpm)
 
 ## 说明
  不同模型在是否存在默认system message上有所不同(大多数模型都是没有的)，所以以官方是否有为标准。
@@ -102,3 +105,30 @@ Assistant:This is a answer<｜end▁of▁sentence｜>
 <s>[INST]:This is a instruction [/INST]This is a answer</s>
 ```
 
+### Llama2
+
+```text
+<s>[INST] <<SYS>>
+You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.
+
+If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.
+<</SYS>>
+
+There's a llama in my garden 😱 What should I do? [/INST] This is a answer</s>
+```
+
+### Llama3
+```text
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+This is a system prompt.<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+This is the first user input.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+This is the first assistant response.<|eot_id|>
+```
+
+### MiniCPM
+```text
+<用户>This is a system message<AI>This is a instruction</s>
+```
