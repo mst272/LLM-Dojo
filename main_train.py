@@ -127,6 +127,8 @@ def create_model(args, train_args):
         if hasattr(model, 'enable_input_require_grads'):
             # 不加可能报错
             model.enable_input_require_grads()
+    elif args.train_mode == 'full':
+        model = load_model(model_kwargs)
 
     if args.train_mode == 'full':
         peft_config = None

@@ -18,6 +18,7 @@ class TemplateName(Enum):
 class TrainMode(Enum):
     QLORA = 'qlora'
     LORA = 'lora'
+    FULL = 'full'
 
 
 class TrainArgPath(Enum):
@@ -40,7 +41,7 @@ class CommonArgs:
     template_name: TemplateName = field(default=TemplateName.QWEN.value, metadata={"help": "sft时的数据格式,即指定模型数据输入格式"})
 
     # 微调方法相关选择与配置
-    train_mode: TrainMode = field(default=TrainMode.LORA.value, metadata={"help": "选择采用的训练方式：[qlora, lora]"})
+    train_mode: TrainMode = field(default=TrainMode.LORA.value, metadata={"help": "选择采用的训练方式：[qlora, lora, full]"})
     use_dora: bool = field(default=False, metadata={"help": "仅在train_mode==lora时可以使用。是否使用Dora(一个基于lora的变体) "
                                                             "目前只支持linear and Conv2D layers."})
 
