@@ -12,10 +12,11 @@ Tips: 图片完全由AI生成
 
 "Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 ## 📖 Latest News
+- [2024-06-19] 正在准备更新RLHF相关。。。。。
 - [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
 - [2024-06-9] 🚀支持DPO训练，分为单轮对话DPO(自己构建，方便魔改)和多轮对话DPO(简洁实现)，支持deepspeed的lora和qlora，具体介绍可见 [DPO使用说明](./train_args/dpo/README.md)
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
-- [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora等训练！！(即将增加全量训练)
+- [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora、全量微调等训练！！(即将增加全量训练)
 <details> <summary>More news...</summary>
 
 - [2024-05-13] 🚀 更新各大模型的Chat Template
