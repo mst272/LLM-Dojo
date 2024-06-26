@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 from trl import ModelConfig
 
 
 @dataclass
-class Model_Config(ModelConfig):
+class OurModelConfig(ModelConfig):
     """
        Arguments which define the model and tokenizer to load.
     """
@@ -13,8 +13,8 @@ class Model_Config(ModelConfig):
     trust_remote_code: bool = field(default=True, metadata={"help": "Trust remote code when loading a model."})
 
     # 下面参数是关于lora的配置， use_peft=True 表示启用lora
-    use_peft: bool = field(default=False, metadata={"help": "Whether to use PEFT or not for training."})
-    torch_dtype: Optional[str] = field(default='bfloat16', metadata={"help": "4位精度计算的数据类型","choices": ["auto", "bfloat16", "float16", "float32"]})
+    use_peft: bool = field(default=True, metadata={"help": "Whether to use PEFT or not for training."})
+    torch_dtype: Optional[str] = field(default='bfloat16', metadata={"help": "4位精度计算的数据类型", "choices": ["auto", "bfloat16", "float16", "float32"]})
     lora_r: Optional[int] = field(default=16, metadata={"help": "LoRA R value."})
     lora_alpha: Optional[int] = field(default=32, metadata={"help": "LoRA alpha."})
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "LoRA dropout."})

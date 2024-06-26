@@ -1,11 +1,10 @@
-import warnings
 from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser
 from trl import RewardTrainer, get_kbit_device_map, get_peft_config, get_quantization_config
-from args.model_config import Model_Config
+from args.model_config import OurModelConfig
 from args.reward_config import RewardConfig
 
-parser = HfArgumentParser((RewardConfig, Model_Config))
+parser = HfArgumentParser((RewardConfig, OurModelConfig))
 config, model_config = parser.parse_args_into_dataclasses()
 config.gradient_checkpointing_kwargs = dict(use_reentrant=False)
 
@@ -25,11 +24,11 @@ model = AutoModelForSequenceClassification.from_pretrained(
 ################
 # Dataset
 ################
-raw_datasets = load_dataset("Anthropic/hh-rlhf")
-# Tokenize chosen/rejected pairs of inputs
-# Adapt this section to your needs for custom datasets
+# raw_datasets = load_dataset("Anthropic/hh-rlhf")
+datasets = load_dataset(data_files=config.train_data_path, path='json')
 
-def preprocess_function(examples):
+
+def preprocess(examples):
     new_examples = {
         "input_ids_chosen": [],
         "attention_mask_chosen": [],
@@ -47,13 +46,15 @@ def preprocess_function(examples):
 
     return new_examples
 
-# Preprocess the dataset and filter out examples that are longer than args.max_length
-raw_datasets = raw_datasets.map(
-    preprocess_function,
+
+# 数据处理操作
+raw_datasets = datasets.map(
+    preprocess,
     batched=True,
     num_proc=4,
 )
-raw_datasets = raw_datasets.filter(
+# 长度截短
+datasets = datasets.filter(
     lambda x: len(x["input_ids_chosen"]) <= config.max_length and len(x["input_ids_rejected"]) <= config.max_length
 )
 train_dataset = raw_datasets["train"]
@@ -72,7 +73,6 @@ trainer = RewardTrainer(
 )
 trainer.train()
 trainer.save_model(config.output_dir)
-trainer.push_to_hub()
 metrics = trainer.evaluate()
 trainer.log_metrics("eval", metrics)
 print(metrics)

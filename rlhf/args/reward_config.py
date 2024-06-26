@@ -3,6 +3,7 @@ from typing import Optional, Union, List
 from transformers import TrainingArguments, SchedulerType, IntervalStrategy
 from transformers.training_args import OptimizerNames
 
+
 @dataclass
 class RewardConfig(TrainingArguments):
     """
@@ -21,6 +22,7 @@ class RewardConfig(TrainingArguments):
     """
         训练参数, 直接在这里修改default即可
     """
+    train_data_path: Optional[str] = field(default='./', metadata={"help": "训练集路径"})
     output_dir: str = field(default='', metadata={"help": "模型训练完成后的保存路径"})
     num_train_epochs: int = field(default=1, metadata={"help": "训练轮次"})
     per_device_train_batch_size: int = field(default=2, metadata={"help": "训练的batch size"})
@@ -45,12 +47,7 @@ class RewardConfig(TrainingArguments):
     max_grad_norm: float = field(default=1.0, metadata={"help": "Max gradient norm."})
     remove_unused_columns: Optional[bool] = field(default=False, metadata={
         "help": "Remove columns not required by the model when using an nlp.Dataset."})
-    bf16: bool = field(default=True, metadata={
-        "help": ("Whether to use bf16 (mixed) precision instead of 32-bit. Requires Ampere or higher NVIDIA"
-                 " architecture or using CPU (use_cpu) or Ascend NPU. This is an experimental API and it may change."
-                 )
-    })
-    fp16: bool = field(default=False, metadata={"help": "Whether to use fp16 (mixed) precision instead of 32-bit"})
+    bf16: bool = field(default=True, metadata={"help": "是否使用bf16精度"})
 
     # Deepspeed训练相关参数，不使用时设置为default=None
     deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json',
