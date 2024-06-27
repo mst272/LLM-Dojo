@@ -50,5 +50,4 @@ class RewardConfig(TrainingArguments):
     bf16: bool = field(default=True, metadata={"help": "是否使用bf16精度"})
 
     # Deepspeed训练相关参数，不使用时设置为default=None
-    deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json',
-                                     metadata={"help": "启用Deepspeed时需要的config文件"})
+    deepspeed: Optional[str] = field(default=None, metadata={"help": "启用Deepspeed时需要的config文件"})

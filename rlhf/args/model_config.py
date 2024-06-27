@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 from trl import ModelConfig
 
 
@@ -18,8 +18,7 @@ class OurModelConfig(ModelConfig):
     lora_r: Optional[int] = field(default=16, metadata={"help": "LoRA R value."})
     lora_alpha: Optional[int] = field(default=32, metadata={"help": "LoRA alpha."})
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "LoRA dropout."})
-    lora_task_type: str = field(default="SEQ_CLS", metadata={"help": "The task_type to pass for LoRA (use SEQ_CLS "
-                                                                       "for reward modeling)"})
+    lora_task_type: str = field(default="SEQ_CLS", metadata={"help": "The task_type to pass for LoRA (use SEQ_CLS for reward modeling)"})
 
     # 下列参数是关于qlora的配置， load_in_4bit=True 则表示使用qlora。若为 False 则后面参数不需要设置。
     load_in_4bit: bool = field(default=False, metadata={"help": "是否使用qlora"})
