@@ -32,7 +32,7 @@ def load_config(train_args_path):
 
 def initial_args():
     # parser = HfArgumentParser((CommonArgs, TrainArgument))
-    # args, train_args = parser.parse_args_into_dataclasses()
+    # reward_args, train_args = parser.parse_args_into_dataclasses()
     parser = HfArgumentParser((CommonArgs,))
     args = parser.parse_args_into_dataclasses()[0]
     # 根据CommonArgs中的config_option动态加载配置

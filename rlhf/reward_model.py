@@ -1,8 +1,8 @@
 from datasets import load_dataset
 from transformers import AutoTokenizer, HfArgumentParser
 from trl import RewardTrainer, get_kbit_device_map, get_peft_config, get_quantization_config
-from args.model_config import OurModelConfig
-from args.reward_config import RewardConfig
+from reward_args.model_config import OurModelConfig
+from reward_args.reward_config import RewardConfig
 
 from transformers import Phi3ForSequenceClassification  # 不同模型需要替换不同接口
 
