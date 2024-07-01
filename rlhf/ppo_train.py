@@ -1,6 +1,5 @@
-import shutil
-
 from datasets import load_dataset
+
 from transformers import (
     AutoModelForCausalLM,
     AutoModelForSequenceClassification,
@@ -13,96 +12,72 @@ from trl.trainer.ppov2_trainer import PPOv2Config, PPOv2Trainer
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 
 
-"""
-python -i examples/scripts/ppo/ppo.py \
-    --learning_rate 3e-6 \
-    --output_dir models/minimal/ppo \
-    --per_device_train_batch_size 64 \
-    --gradient_accumulation_steps 1 \
-    --total_episodes 10000 \
-    --model_name_or_path EleutherAI/pythia-1b-deduped \
-    --non_eos_penalty \
+parser = HfArgumentParser((PPOv2Config, ModelConfig))
+config, model_config = parser.parse_args_into_dataclasses()
+# remove output_dir if exists
+#shutil.rmtree(config.output_dir, ignore_errors=True)
 
-accelerate launch --config_file examples/accelerate_configs/deepspeed_zero3.yaml \
-    examples/scripts/ppo/ppo.py \
-    --output_dir models/minimal/ppo \
-    --num_ppo_epochs 1 \
-    --num_mini_batches 1 \
-    --learning_rate 3e-6 \
-    --per_device_train_batch_size 1 \
-    --gradient_accumulation_steps 16 \
-    --total_episodes 10000 \
-    --model_name_or_path EleutherAI/pythia-1b-deduped \
-    --sft_model_path EleutherAI/pythia-1b-deduped \
-    --reward_model_path EleutherAI/pythia-1b-deduped \
-    --local_rollout_forward_batch_size 1 \
-    --deepspeed3 \
-    --non_eos_penalty \
-"""
+################
+# Model & Tokenizer
+################
+tokenizer = AutoTokenizer.from_pretrained(
+    model_config.model_name_or_path,
+    padding_side="left",
+    trust_remote_code=True,
+)
+# 需要根据不同模型的情况进行适配，或者直接采用下面的OPENAI的原始设置
+tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+
+if tokenizer.chat_template is None:
+    tokenizer.chat_template = SIMPLE_QUERY_CHAT_TEMPLATE
 
 
-if __name__ == "__main__":
-    parser = HfArgumentParser((PPOv2Config, ModelConfig))
-    config, model_config = parser.parse_args_into_dataclasses()
-    # remove output_dir if exists
-    shutil.rmtree(config.output_dir, ignore_errors=True)
+value_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
+reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
+ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
+policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
+################
+# Dataset
+################
+raw_datasets = load_dataset("trl-internal-testing/descriptiveness-sentiment-trl-style", split="descriptiveness")
+eval_samples = 20
+train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+dataset_text_field = "prompt"
 
-    ################
-    # Model & Tokenizer
-    ################
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_config.model_name_or_path,
-        padding_side="left",
-        trust_remote_code=True,
-    )
-    tokenizer.add_special_tokens({"pad_token": "[PAD]"})
-    if tokenizer.chat_template is None:
-        tokenizer.chat_template = SIMPLE_QUERY_CHAT_TEMPLATE
-    value_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
-    reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
-    ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
-    policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
-    ################
-    # Dataset
-    ################
-    raw_datasets = load_dataset("trl-internal-testing/descriptiveness-sentiment-trl-style", split="descriptiveness")
-    eval_samples = 20
-    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
-    dataset_text_field = "prompt"
 
-    def prepare_dataset(dataset, tokenizer):
-        """pre-tokenize the dataset before training; only collate during training"""
+def prepare_dataset(dataset, tokenizer):
+    """pre-tokenize the dataset before training; only collate during training"""
 
-        def tokenize(element):
-            outputs = tokenizer(
-                element[dataset_text_field],
-                padding=False,
-            )
-            return {"input_ids": outputs["input_ids"]}
-
-        return dataset.map(
-            tokenize,
-            remove_columns=dataset.column_names,
-            batched=True,
-            num_proc=4,  # multiprocessing.cpu_count(),
-            load_from_cache_file=False,
+    def tokenize(element):
+        outputs = tokenizer(
+            element[dataset_text_field],
+            padding=False,
         )
+        return {"input_ids": outputs["input_ids"]}
 
-    ################
-    # Training
-    ################
-    trainer = PPOv2Trainer(
-        config=config,
-        tokenizer=tokenizer,
-        policy=policy,
-        ref_policy=ref_policy,
-        reward_model=reward_model,
-        value_model=value_model,
-        train_dataset=prepare_dataset(train_dataset, tokenizer),
-        eval_dataset=prepare_dataset(eval_dataset, tokenizer),
+    return dataset.map(
+        tokenize,
+        remove_columns=dataset.column_names,
+        batched=True,
+        num_proc=4,  # multiprocessing.cpu_count(),
+        load_from_cache_file=False,
     )
-    trainer.train()
-    trainer.save_model(config.output_dir)
-    trainer.push_to_hub()
-    trainer.generate_completions()
+
+
+################
+# Training
+################
+trainer = PPOv2Trainer(
+    config=config,
+    tokenizer=tokenizer,
+    policy=policy,
+    ref_policy=ref_policy,
+    reward_model=reward_model,
+    value_model=value_model,
+    train_dataset=prepare_dataset(train_dataset, tokenizer),
+    eval_dataset=prepare_dataset(eval_dataset, tokenizer),
+)
+trainer.train()
+trainer.save_model(config.output_dir)
+trainer.generate_completions()
