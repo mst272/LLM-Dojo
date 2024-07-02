@@ -1,23 +1,21 @@
-import shutil
 from peft import LoraConfig, TaskType, get_peft_model
 from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     Phi3ForSequenceClassification,
     HfArgumentParser,
 )
 
 from trl import ModelConfig
-from trl.trainer.ppov2_trainer import PPOv2Trainer
+from trl.trainer.rloo_trainer import RLOOTrainer
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 
 #from ppo_args.model_config import ModelConfig
-from ppo_args.ppo_config import PPOv2Config
+from rloo_args.rloo_config import RLOOConfig
 
 
-parser = HfArgumentParser(PPOv2Config)
+parser = HfArgumentParser(RLOOConfig)
 config = parser.parse_args_into_dataclasses()[0]
 # remove output_dir if exists
 # shutil.rmtree(config.output_dir, ignore_errors=True)
@@ -26,7 +24,7 @@ config = parser.parse_args_into_dataclasses()[0]
 # Model & Tokenizer
 ################
 loraconfig = LoraConfig(
-    task_type=TaskType.CAUSAL_LM, 
+    task_type=TaskType.CAUSAL_LM,
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
     inference_mode=False, # 训练模式
     r=8, # Lora 秩
@@ -44,7 +42,7 @@ tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
 if tokenizer.chat_template is None:
     tokenizer.chat_template = SIMPLE_QUERY_CHAT_TEMPLATE
-value_model = Phi3ForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
+
 reward_model = Phi3ForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
 
 ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, trust_remote_code=True)
@@ -85,16 +83,15 @@ def prepare_dataset(dataset, tokenizer):
 ################
 # Training
 ################
-trainer = PPOv2Trainer(
-    config=config,
-    tokenizer=tokenizer,
-    policy=policy,
-    ref_policy=ref_policy,
-    reward_model=reward_model,
-    value_model=value_model,
-    train_dataset=prepare_dataset(train_dataset, tokenizer),
-    eval_dataset=prepare_dataset(eval_dataset, tokenizer),
-)
+trainer = RLOOTrainer(
+        config=config,
+        tokenizer=tokenizer,
+        policy=policy,
+        ref_policy=ref_policy,
+        reward_model=reward_model,
+        train_dataset=prepare_dataset(train_dataset, tokenizer),
+        eval_dataset=prepare_dataset(eval_dataset, tokenizer),
+    )
 trainer.train()
 trainer.save_model(config.output_dir)
 trainer.generate_completions()

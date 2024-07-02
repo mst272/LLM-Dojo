@@ -5,9 +5,11 @@ from transformers import TrainingArguments, SchedulerType, IntervalStrategy
 from transformers.training_args import OptimizerNames
 from trl.trainer.utils import OnpolicyRuntimeConfig
 
+INVALID_LOGPROB = 1.0
+
 
 @dataclass
-class PPOv2Config(OnpolicyRuntimeConfig, TrainingArguments):
+class RLOOConfig(OnpolicyRuntimeConfig, TrainingArguments):
     # common config
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
     """the name of this experiment"""
@@ -27,26 +29,28 @@ class PPOv2Config(OnpolicyRuntimeConfig, TrainingArguments):
     """the number of debugging samples generations (i.e., `generate_completions` calls) throughout training"""
 
     # other config
-    # base_model: str = "EleutherAI/pythia-160m"
-    # """the name of the pretrained model to use"""
+    base_model: str = "EleutherAI/pythia-160m"
+    """the name of the pretrained model to use"""
     response_length: int = 53
     """the length of the response"""
     stop_token: Optional[Literal["eos"]] = None
     """the stop token"""
     stop_token_id: Optional[int] = None
-    """the truncation token id"""
+    """the stop token id"""
     temperature: float = 0.7
     """the sampling temperature"""
     penalty_reward_value: int = -1
     """the reward value for responses that do not contain `stop_token_id`"""
     non_eos_penalty: bool = False
     """whether to penalize responses that do not contain `stop_token_id`"""
-    reward_model_path: str = "./"
+    reward_model_path: str = "EleutherAI/pythia-160m"
     """the path to the reward model"""
-    sft_model_path: str = "./"
+    sft_model_path: str = "EleutherAI/pythia-160m"
     """the path to the sft model"""
 
     # ppo config
+    num_mini_batches: int = 1
+    """the number of minibatches to split a batch into"""
     num_ppo_epochs: int = 4
     """the number of epochs to train"""
     vf_coef: float = 0.1
@@ -63,6 +67,10 @@ class PPOv2Config(OnpolicyRuntimeConfig, TrainingArguments):
     """whether to whiten the rewards"""
     kl_coef: float = 0.05
     """the KL coefficient"""
+
+    # rloo config
+    rloo_k: int = 2
+    """REINFORCE Leave-One-Out (RLOO) number of online samples per prompt"""
 
     # TrainingArguments的相关参数
     train_data_path: Optional[str] = field(default='./', metadata={"help": "训练集路径"})
