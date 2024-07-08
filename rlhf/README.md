@@ -43,3 +43,8 @@ deepspeed --include localhost:0 rloo_train2.py
 
 
 DPO终于也可以了，但是跟deepspeed适配还是有些问题，目前A100 40GB只能训2B的模型。因为zero3会报莫名错误，后续还需探讨如何优化。
+
+
+ds.yaml文件中main_process_port如果被占用则加一个数字即可。错误如下：
+
+> ConnectionError: Tried to launch distributed communication on port `29500`, but another process is utilizing it. Please specify a different port (such as using the `--main_process_port` flag or specifying a different `main_process_port` in your config file) and rerun your script. To automatically use the next open port (on a single node), you can set this to `0`.
