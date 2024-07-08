@@ -28,7 +28,7 @@ PPO：目前zero3训练还有报错，暂未查明原因
 使用deepspeed时最好通过accelerate进行使用，直接deepspeed的话会报错(目前似乎没有很好的解决方案)
 
 #### 建议方式
-所以使用zero-3的accelerate命令如下：
+所以使用zero-3的accelerate命令如下()：
 ```bash
 CUDA_VISIBLE_DEVICES=0 nohup accelerate launch --config_file ./deepspeed_zero3.yaml rloo_train2.py
 ```
@@ -40,3 +40,6 @@ CUDA_VISIBLE_DEVICES=0 nohup accelerate launch --config_file ./deepspeed_zero3.y
 ```bash
 deepspeed --include localhost:0 rloo_train2.py
 ```
+
+
+DPO终于也可以了，但是跟deepspeed适配还是有些问题，目前A100 40GB只能训2B的模型。因为zero3会报莫名错误，后续还需探讨如何优化。
