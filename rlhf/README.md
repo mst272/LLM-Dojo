@@ -59,8 +59,7 @@ res——length为64
 | RLOO     | Zero 3 cpu  cpu | Lora   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):15~30G |
 | RLOO     | Zero 3 cpu  cpu | Full   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):速度很慢   |
 | RLOO     | Zero 2 cpu  cpu | Qlora  | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):30~40G |
-|          |                 |        |                  |               |                       |
-|          |                 |        |                  |               |                       |
+
 
 
 
