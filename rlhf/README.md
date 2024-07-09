@@ -54,13 +54,13 @@ ds.yaml文件中main_process_port如果被占用则加一个数字即可。错�
 ### 显存实验
 res——length为64
 
-| **RLHF** | **deepspeed**    | **方式** | **Reward Model** | **SFT Model** | **显存占用**              |
-|----------|------------------|--------|------------------|---------------|-----------------------|
-| RLOO     | Zero 3 cpu cpu   | Lora   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):15~30G |
-| RLOO     | Zero 3 cpu  cpu  | Full   | QWEN2(7B)        | QWEN2(7B)     |                       |
-| RLOO     | Zero 2  cpu  cpu | Qlora  | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):30~40G |
-|          |                  |        |                  |               |                       |
-|          |                  |        |                  |               |                       |
+| **RLHF** | **deepspeed**   | **方式** | **Reward Model** | **SFT Model** | **显存占用**              |
+|----------|-----------------|--------|------------------|---------------|-----------------------|
+| RLOO     | Zero 3 cpu  cpu | Lora   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):15~30G |
+| RLOO     | Zero 3 cpu  cpu | Full   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):速度很慢   |
+| RLOO     | Zero 2 cpu  cpu | Qlora  | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):30~40G |
+|          |                 |        |                  |               |                       |
+|          |                 |        |                  |               |                       |
 
 
 
