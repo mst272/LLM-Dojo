@@ -1,4 +1,6 @@
 import shutil
+
+import torch
 from peft import LoraConfig, TaskType, get_peft_model
 from datasets import load_dataset
 from transformers import (
@@ -6,7 +8,7 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
     Phi3ForSequenceClassification,
-    HfArgumentParser,
+    HfArgumentParser, BitsAndBytesConfig,
 )
 
 from trl import ModelConfig
@@ -25,6 +27,14 @@ config = parser.parse_args_into_dataclasses()[0]
 ################
 # Model & Tokenizer
 ################
+quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            llm_int8_threshold=6.0,
+            llm_int8_has_fp16_weight=False
+        )
 loraconfig = LoraConfig(
     task_type=TaskType.CAUSAL_LM, 
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],

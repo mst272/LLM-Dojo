@@ -5,7 +5,6 @@ from transformers import TrainingArguments, SchedulerType, IntervalStrategy
 from transformers.training_args import OptimizerNames
 from trl.trainer.utils import OnpolicyRuntimeConfig
 
-
 @dataclass
 class PPOv2Config(OnpolicyRuntimeConfig, TrainingArguments):
     # common config
@@ -84,7 +83,7 @@ class PPOv2Config(OnpolicyRuntimeConfig, TrainingArguments):
     warmup_steps: int = field(default=10, metadata={"help": "Linear warmup over warmup_steps."})
     optim: Union[OptimizerNames, str] = field(default='paged_adamw_32bit', metadata={"help": "The optimizer to use."})
     seed: int = field(default=42, metadata={"help": "Random seed that will be set at the beginning of training."})
-    report_to: Optional[List[str]] = field(default='tensorboard', metadata={
+    report_to: Optional[List[str]] = field(default='wandb', metadata={
         "help": "The list of integrations to report the results and logs to."})
     weight_decay: float = field(default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."})
     max_grad_norm: float = field(default=1.0, metadata={"help": "Max gradient norm."})

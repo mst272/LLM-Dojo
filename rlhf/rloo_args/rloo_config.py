@@ -87,12 +87,12 @@ class RLOOConfig(OnpolicyRuntimeConfig, TrainingArguments):
     save_total_limit: Optional[int] = field(default=2, metadata={"help": "If a value is passed, will limit the total "
                                                                          "amount of checkpoints. Deletes the older "
                                                                          "checkpoints in"})
-    lr_scheduler_type: Union[SchedulerType, str] = field(default="constant_with_warmup",
+    lr_scheduler_type: Union[SchedulerType, str] = field(default="cosine",
                                                          metadata={"help": "The scheduler type to use."})
     warmup_steps: int = field(default=10, metadata={"help": "Linear warmup over warmup_steps."})
-    optim: Union[OptimizerNames, str] = field(default='paged_adamw_32bit', metadata={"help": "The optimizer to use."})
+    optim: Union[OptimizerNames, str] = field(default='adamw_torch_fused', metadata={"help": "The optimizer to use."})
     seed: int = field(default=42, metadata={"help": "Random seed that will be set at the beginning of training."})
-    report_to: Optional[List[str]] = field(default='tensorboard', metadata={
+    report_to: Optional[List[str]] = field(default='wandb', metadata={
         "help": "The list of integrations to report the results and logs to."})
     weight_decay: float = field(default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."})
     max_grad_norm: float = field(default=1.0, metadata={"help": "Max gradient norm."})

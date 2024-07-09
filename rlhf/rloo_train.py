@@ -5,6 +5,7 @@ from transformers import (
     AutoTokenizer,
     Phi3ForSequenceClassification,
     HfArgumentParser,
+    Qwen2ForSequenceClassification
 )
 
 from trl import ModelConfig
