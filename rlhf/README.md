@@ -128,4 +128,14 @@ accelerate 命令 QLORA only policy zero3  cpu     cpu ，res_length 64 : 确实
 
 accelerate 命令 QLORA only policy zero2  cpu         ，res_length 64 :  成功  30GB左右   双卡A100
 
-accelerate 命令 FULL zero3  cpu   cpu      ，res_length 64 :   双卡A100
+accelerate 命令 FULL zero3  cpu   cpu      ，res_length 64 :   双卡A100   很慢  10-30GB
+
+
+所以后面重点是看如何适配qlora
+
+accelerate 命令 QLORA ref and policy zero3  cpu     cpu ，res_length 64 : 双卡A100  报错：output tensor 
+
+
+accelerate 命令 QLORA ref and policy zero3  cpu     cpu ，res_length 64 : 单卡A100  报错：output tensor 
+
+都不行  所以需要看如何适配qlora + deepspeed zero-3 了
