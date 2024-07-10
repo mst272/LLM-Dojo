@@ -14,6 +14,8 @@
 
 第一步就是需要训练一个合格的奖励模型。这一步还是比较简单的，且也不用占用过多的显存。
 
+**对于Reward模型，需要自己去看AutoModelForSequenceClassification是否可以加载其Classification模型，不能的话需要在其config文件中映射。**
+
 ## Step2 RL：基于不同优化方法进行强化学习，如DPO、PPO等
 
 PPO：目前zero3训练还有报错，暂未查明原因
@@ -47,6 +49,13 @@ ds.yaml文件中main_process_port如果被占用则加一个数字即可。错�
 
 
 ### 支持矩阵
+✅ 代表支持deepspeed 全策略
+
+| 支持方法/deepspeed | LORA | QLORA | Full | Unsloth(待更新) |
+|----------------|------|-------|------|--------------|
+| RLOO           | ✅    | Zero2 | ✅    | ❌            |
+| PPO            |      |       |      | ❌            |
+| SimPO          |      |       |      | ❌            |
 
 
 
@@ -58,7 +67,7 @@ res——length为64
 |----------|-----------------|--------|------------------|---------------|-----------------------|
 | RLOO     | Zero 3 cpu  cpu | Lora   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):15~30G |
 | RLOO     | Zero 3 cpu  cpu | Full   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):速度很慢   |
-| RLOO     | Zero 2 cpu  cpu | Qlora  | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):30~40G |
+| RLOO     | Zero 2 cpu      | Qlora  | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):30~40G |
 
 
 
@@ -88,14 +97,35 @@ accelerate 命令 QLORA zero3  none    none ，res_length 64   单卡可以。 �
 破案了，QLora 只支持zero2及以下，不支持zero3。    zero2，zero3理论上都支持两个cpu     cpu。
 
 
+需要确定一下QLORA时  policy和ref是否都需要量化，可能会报bit冲突的错误。。试了一下  单模型QLORA是可以的。
+
+#### PPO：
+
+R:2B   S:6.7B
+                          optim  param
+accelerate 命令 LORA zero3  cpu     cpu ，res_length 64 :   失败  ，应该不支持zero3的param offload策略
+
+accelerate 命令 LORA zero2  cpu         ，res_length 64 :  OOM  双卡A100
+
+accelerate 命令 FULL zero2  cpu         ，res_length 64 :  OOM  双卡A100
+
+accelerate 命令 LORA zero2  cpu         ，res_length 64 :  OOM 三卡A100
+
+accelerate 命令 LORA zero3  cpu         ，res_length 64 :  报错 不支持zero3的optim offload 三卡A100
+
+accelerate 命令 LORA zero3  none   none     ，res_length 64 : oom
+
+初步结论只能结合ZERO-2进行 PPO的训练。
+
+accelerate 命令 QLORA only policy zero2  cpu         ，res_length 64 :  报错 看来zero2的 optim offload 也不支持 双卡A100
 
 
+上述可能是数据集有问题，增大长度重新测试。
 
+accelerate 命令 LORA zero3  cpu     cpu ，res_length 64 :   成功  且显存占用不高20G左右    双卡A100
 
+accelerate 命令 QLORA only policy zero3  cpu     cpu ，res_length 64 : 确实不支持zero3 + qlora， 报错如下 TypeErrorTypeError: : output tensor must have the same type as input tensoroutput tensor must have the same type as input tensor
 
+accelerate 命令 QLORA only policy zero2  cpu         ，res_length 64 :  成功  30GB左右   双卡A100
 
-
-
-
-
-
+accelerate 命令 FULL zero3  cpu   cpu      ，res_length 64 :   双卡A100

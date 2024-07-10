@@ -116,3 +116,12 @@ register_template(
     system=None,
     stop_word='<|eot_id|>'
 )
+
+register_template(
+    template_name='deepseek-coder',
+    system_format=None,
+    user_format='### Instruction:\n{content}\n### Response:\n',
+    assistant_format='{content}<|EOT|>\n',
+    system=None,
+    stop_word='<|EOT|>'
+)

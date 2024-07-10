@@ -81,7 +81,7 @@ class PPOv2Config(OnpolicyRuntimeConfig, TrainingArguments):
     lr_scheduler_type: Union[SchedulerType, str] = field(default="constant_with_warmup",
                                                          metadata={"help": "The scheduler type to use."})
     warmup_steps: int = field(default=10, metadata={"help": "Linear warmup over warmup_steps."})
-    optim: Union[OptimizerNames, str] = field(default='paged_adamw_32bit', metadata={"help": "The optimizer to use."})
+    optim: Union[OptimizerNames, str] = field(default='adamw_torch', metadata={"help": "The optimizer to use."})
     seed: int = field(default=42, metadata={"help": "Random seed that will be set at the beginning of training."})
     report_to: Optional[List[str]] = field(default='wandb', metadata={
         "help": "The list of integrations to report the results and logs to."})
