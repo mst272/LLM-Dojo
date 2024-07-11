@@ -53,6 +53,24 @@ def find_all_linear_names(model):
     return lora_module_names
 
 
+def load_data(datasets, tokenizer):
+    def tokenize(element):
+        element['prompt'] = tokenizer.apply_chat_template(element["prompt"], tokenize=False)
+        outputs = tokenizer(
+            element['prompt'],
+            padding=False,
+        )
+        return {"input_ids": outputs["input_ids"]}
+
+    return datasets.map(
+        tokenize,
+        remove_columns=datasets.column_names,
+        batched=True,
+        num_proc=4,  # multiprocessing.cpu_count(),
+        load_from_cache_file=False,
+    )
+
+
 def main():
     parser = HfArgumentParser((CommonArgs,))
     args = parser.parse_args_into_dataclasses()[0]
@@ -92,13 +110,55 @@ def main():
 
     ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
     policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
+    lora_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        target_modules=find_all_linear_names(policy),
+        r=args.lora_rank,  # Lora 秩
+        lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
+        lora_dropout=args.lora_dropout  # Dropout 比例
+    )
     if args.train_mode == 'lora':
-        lora_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM,
-            target_modules=find_all_linear_names(policy),
-            r=args.lora_rank,  # Lora 秩
-            lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
-            lora_dropout=args.lora_dropout  # Dropout 比例
+        policy.enable_input_require_grads()
+        policy = get_peft_model(policy, lora_config)
+    elif args.train_mode == 'qlora':
+        policy = prepare_model_for_kbit_training(policy, use_gradient_checkpointing=config.gradient_checkpointing)
+        policy = get_peft_model(policy, lora_config)
+
+    ################
+    # Dataset
+    ################
+    raw_datasets = load_dataset(data_files=config.train_data_path, path='json', split='train')
+    eval_samples = 20
+    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+
+    ################
+    # Training
+    ################
+    if args.rlhf_type == 'RLOO':
+        trainer = RLOOTrainer(
+            config=config,
+            tokenizer=tokenizer,
+            policy=policy,
+            ref_policy=ref_policy,
+            reward_model=reward_model,
+            train_dataset=load_data(train_dataset, tokenizer),
+            eval_dataset=load_data(eval_dataset, tokenizer),
+        )
+        trainer.train()
+        trainer.save_model(config.output_dir)
+        if config.push_to_hub:
+            trainer.push_to_hub()
+        trainer.generate_completions()
+    elif args.rlhf_type == 'PPO':
+        trainer = RLOOTrainer(
+            config=config,
+            tokenizer=tokenizer,
+            policy=policy,
+            ref_policy=ref_policy,
+            reward_model=reward_model,
+            train_dataset=load_data(train_dataset, tokenizer),
+            eval_dataset=load_data(eval_dataset, tokenizer),
         )
 
 

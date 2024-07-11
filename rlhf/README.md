@@ -16,6 +16,10 @@
 
 **需要自己去看AutoModelForSequenceClassification是否可以加载其Classification模型，不能的话需要在其config文件中映射。**
 
+涉及到reward模型时，需要两个模型的tokenizer相同。
+
+数据格式要求：为了适配chat template，数据格式需要选用如下形式，**带有role的 user 和 assistant。**
+
 ## 参数解释
 
 However, the num_train_epochs and num_ppo_epochs are actually two different things. The num_train_epochs means how many epochs do we go over the dataset, the num_ppo_epochs means the number of epochs we perform PPO updates on a batch of data. So, there is a subtle but meaningful difference here.
