@@ -1,15 +1,17 @@
 compute_environment: LOCAL_MACHINE
 debug: false
 deepspeed_config:
-  deepspeed_config_file: /home/nlp/wzh/LLM-Dojo/rlhf/dp_zero3.json
-  zero3_init_flag: true
+  deepspeed_multinode_launcher: standard
+  offload_optimizer_device: cpu
+  zero3_init_flag: false
+  zero_stage: 2
 distributed_type: DEEPSPEED
 downcast_bf16: 'no'
 machine_rank: 0
 main_training_function: main
-mixed_precision: bf16
+mixed_precision: 'bf16'
 num_machines: 1
-num_processes: 1
+num_processes: 2
 rdzv_backend: static
 same_network: true
 tpu_env: []

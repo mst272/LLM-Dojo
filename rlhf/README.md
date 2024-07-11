@@ -5,16 +5,27 @@
 
 主要资源是在1-3张40G A100上进行实验，其中需要很多显存优化策略，踩了很多坑，包括deepspeed、unsloth等的兼容性问题。
 
+整体还是比较简洁的实现了,一些细节问题还是需要后续的优化,有想法伙伴可以提个PR一起优化这个项目。
+
 包括：
 - Reward模型的训练
 - RLOO、DPO、PPO、SimPO等多种变体
+
+
+## 注意
+
+**需要自己去看AutoModelForSequenceClassification是否可以加载其Classification模型，不能的话需要在其config文件中映射。**
+
+## 参数解释
+
+However, the num_train_epochs and num_ppo_epochs are actually two different things. The num_train_epochs means how many epochs do we go over the dataset, the num_ppo_epochs means the number of epochs we perform PPO updates on a batch of data. So, there is a subtle but meaningful difference here.
 
 
 ## Step1 训练Reward Model
 
 第一步就是需要训练一个合格的奖励模型。这一步还是比较简单的，且也不用占用过多的显存。
 
-**对于Reward模型，需要自己去看AutoModelForSequenceClassification是否可以加载其Classification模型，不能的话需要在其config文件中映射。**
+
 
 ## Step2 RL：基于不同优化方法进行强化学习，如DPO、PPO等
 
@@ -51,11 +62,11 @@ ds.yaml文件中main_process_port如果被占用则加一个数字即可。错�
 ### 支持矩阵
 ✅ 代表支持deepspeed 全策略
 
-| 支持方法/deepspeed | LORA | QLORA | Full | Unsloth(待更新) |
-|----------------|------|-------|------|--------------|
-| RLOO           | ✅    | Zero2 | ✅    | ❌            |
-| PPO            |      |       |      | ❌            |
-| SimPO          |      |       |      | ❌            |
+| 支持方法/deepspeed | LORA(Dora) | QLORA | Full | Unsloth(待更新) |
+|----------------|------------|-------|------|--------------|
+| RLOO           | ✅          | Zero2 | ✅    | ❌            |
+| PPO            | ✅          | Zero2 | ✅    | ❌            |
+| SimPO          |            |       |      | ❌            |
 
 
 
@@ -63,13 +74,14 @@ ds.yaml文件中main_process_port如果被占用则加一个数字即可。错�
 ### 显存实验
 res——length为64
 
-| **RLHF** | **deepspeed**   | **方式** | **Reward Model** | **SFT Model** | **显存占用**              |
-|----------|-----------------|--------|------------------|---------------|-----------------------|
-| RLOO     | Zero 3 cpu  cpu | Lora   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):15~30G |
-| RLOO     | Zero 3 cpu  cpu | Full   | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):速度很慢   |
-| RLOO     | Zero 2 cpu      | Qlora  | QWEN2(7B)        | QWEN2(7B)     | 2 x A100(40GB):30~40G |
-
-
+| **RLHF** | **deepspeed** | **方式** | **Reward Model** | **SFT Model**  | **显存占用**               |
+|----------|---------------|--------|------------------|----------------|------------------------|
+| RLOO     | Zero 3        | Lora   | QWEN2(7B)        | QWEN2(7B)      | 2 x A100(40GB): 15~30G |
+| RLOO     | Zero 3        | Full   | QWEN2(7B)        | QWEN2(7B)      | 2 x A100(40GB): 速度很慢   |
+| RLOO     | Zero 2        | Qlora  | QWEN2(7B)        | QWEN2(7B)      | 2 x A100(40GB): 30~40G |
+| PPO      | Zero 2        | Lora   | MiniCPM(2B)      | Deepseek(6.7B) | 2 x A100(40GB): OOM    |
+| PPO      | Zero 3        | Lora   | MiniCPM(2B)      | Deepseek(6.7B) | 2 x A100(40GB): 20-25G |
+| PPO      | Zero 2        | Qlora  | MiniCPM(2B)      | Deepseek(6.7B) | 2 x A100(40GB): 30G    |
 
 
 注：
