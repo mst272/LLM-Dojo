@@ -19,6 +19,7 @@
 涉及到reward模型时，需要两个模型的tokenizer相同。
 
 数据格式要求：为了适配chat template，数据格式需要选用如下形式，**带有role的 user 和 assistant。**
+这样的话一般的开源数据我们就要处理一下了，将其prompt改成带有role的格式。
 
 ## 参数解释
 

@@ -1,5 +1,4 @@
 import importlib
-import os
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 from datasets import load_dataset
 from transformers import (
@@ -9,18 +8,13 @@ from transformers import (
     HfArgumentParser,
     BitsAndBytesConfig,
     Qwen2ForSequenceClassification,
-    set_seed
 )
 import torch
 import torch.nn as nn
+from trl.trainer.ppov2_trainer import PPOv2Trainer
 from trl.trainer.rloo_trainer import RLOOTrainer
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 from common_args import CommonArgs
-import bitsandbytes as bnb
-
-
-# parser = HfArgumentParser(CommonArgs, RLOOConfig)
-# config = parser.parse_args_into_dataclasses()[0]
 
 
 def load_config(args):
@@ -88,6 +82,8 @@ def main():
 
     if tokenizer.chat_template is None:
         tokenizer.chat_template = SIMPLE_QUERY_CHAT_TEMPLATE
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
     model_kwargs = dict(
         trust_remote_code=True
@@ -104,9 +100,12 @@ def main():
         )
         model_kwargs.update(quantization_config=quantization_config)
 
-    # 如果模型不支持AutoModelForSequenceClassification需要再对应config文件中添加映射
-    reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
-                                                                      **model_kwargs)
+    # 如果模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射
+    try:
+        reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
+                                                                          **model_kwargs)
+    except Exception as e:
+        assert False, "模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射"
 
     ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
     policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
@@ -115,7 +114,8 @@ def main():
         target_modules=find_all_linear_names(policy),
         r=args.lora_rank,  # Lora 秩
         lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
-        lora_dropout=args.lora_dropout  # Dropout 比例
+        lora_dropout=args.lora_dropout,  # Dropout 比例
+        use_dora=args.use_dora
     )
     if args.train_mode == 'lora':
         policy.enable_input_require_grads()
@@ -128,7 +128,7 @@ def main():
     # Dataset
     ################
     raw_datasets = load_dataset(data_files=config.train_data_path, path='json', split='train')
-    eval_samples = 20
+    eval_samples = config.eval_samples
     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
 
@@ -145,21 +145,25 @@ def main():
             train_dataset=load_data(train_dataset, tokenizer),
             eval_dataset=load_data(eval_dataset, tokenizer),
         )
-        trainer.train()
-        trainer.save_model(config.output_dir)
-        if config.push_to_hub:
-            trainer.push_to_hub()
-        trainer.generate_completions()
+
     elif args.rlhf_type == 'PPO':
-        trainer = RLOOTrainer(
+        value_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
+                                                                         trust_remote_code=True)
+        trainer = PPOv2Trainer(
             config=config,
             tokenizer=tokenizer,
             policy=policy,
             ref_policy=ref_policy,
             reward_model=reward_model,
+            value_model=value_model,
             train_dataset=load_data(train_dataset, tokenizer),
             eval_dataset=load_data(eval_dataset, tokenizer),
         )
+    else:
+        raise Exception
+    trainer.train()
+    trainer.save_model(config.output_dir)
+    trainer.generate_completions()
 
 
 if __name__ == "__main__":

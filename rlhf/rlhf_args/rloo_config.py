@@ -14,6 +14,8 @@ class RLOOConfig(OnpolicyRuntimeConfig, TrainingArguments):
     """the name of this experiment"""
     run_name: Optional[str] = None
     """a unique name of this run"""
+    eval_samples: int = 10
+    """the number of eval samples"""
 
     # batch size related config
     num_mini_batches: int = 1
