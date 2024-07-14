@@ -1,14 +1,14 @@
 import importlib
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
-from datasets import load_dataset
+from datasets import Dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     AutoModelForSequenceClassification,
     HfArgumentParser,
     BitsAndBytesConfig,
-    Qwen2ForSequenceClassification,
 )
+import pandas as pd
 import torch
 import torch.nn as nn
 from trl.trainer.ppov2_trainer import PPOv2Trainer
@@ -49,7 +49,6 @@ def find_all_linear_names(model):
 
 def load_data(datasets, tokenizer):
     def tokenize(element):
-        element['prompt'] = tokenizer.apply_chat_template(element["prompt"], tokenize=False)
         outputs = tokenizer(
             element['prompt'],
             padding=False,
@@ -127,7 +126,13 @@ def main():
     ################
     # Dataset
     ################
-    raw_datasets = load_dataset(data_files=config.train_data_path, path='json', split='train')
+    # raw_datasets = load_dataset(data_files=config.train_data_path, path='json', split='train')
+    raw_datasets = pd.read_json(config.train_data_path, lines=True)
+    for i in range(len(raw_datasets)):
+        pro = raw_datasets['prompt'][i]
+        res = tokenizer.apply_chat_template(pro, tokenize=False)
+        raw_datasets.loc[i, 'prompt'] = res
+    raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
     eval_samples = config.eval_samples
     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))

@@ -6,7 +6,7 @@ from transformers.training_args import OptimizerNames
 from trl.trainer.utils import OnpolicyRuntimeConfig
 
 @dataclass
-class PPOv2Config(OnpolicyRuntimeConfig, TrainingArguments):
+class PPOConfig(OnpolicyRuntimeConfig, TrainingArguments):
     # common config
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
     """the name of this experiment"""

@@ -1,70 +1,89 @@
-# RLHF全流程
+# RLHF 强化学习框架
 
-最近一直在从零构建强化学习的全套流程，特别感谢huggingface trl做出的强大贡献，通过trl 我们真的可以很容易简洁的实现RLHF
+不同于其他框架实现的高度集成的强化学习框架，本框架使用简洁的代码对各种强化学习方法进行了集成，且便于自己修改与学习，是一个轻量化的强化学习框架。
 
+主要资源是在1-8张40G A100上进行实验，支持deepspeed单卡或多卡训练。 一些细节问题可能需要后续的优化,有想法伙伴可以提个PR一起优化这个项目。
 
-主要资源是在1-3张40G A100上进行实验，其中需要很多显存优化策略，踩了很多坑，包括deepspeed、unsloth等的兼容性问题。
+## 目录
 
-整体还是比较简洁的实现了,一些细节问题还是需要后续的优化,有想法伙伴可以提个PR一起优化这个项目。
-
-包括：
-- Reward模型的训练
-- RLOO、DPO、PPO、SimPO等多种变体
-
-
-## 注意
-
-**需要自己去看AutoModelForSequenceClassification是否可以加载其Classification模型，不能的话需要在其config文件中映射。**
-
-涉及到reward模型时，需要两个模型的tokenizer相同。
-
-数据格式要求：为了适配chat template，数据格式需要选用如下形式，**带有role的 user 和 assistant。**
-这样的话一般的开源数据我们就要处理一下了，将其prompt改成带有role的格式。
-
-## 参数解释
-
-However, the num_train_epochs and num_ppo_epochs are actually two different things. The num_train_epochs means how many epochs do we go over the dataset, the num_ppo_epochs means the number of epochs we perform PPO updates on a batch of data. So, there is a subtle but meaningful difference here.
+- [目前支持的强化学习方法](#目前支持的强化学习方法)
+- [Quick Star](#quick-star)
+  - [数据格式要求](#数据格式要求)
+  - [Step1 训练Reward Model](#step1-训练reward-model)
+  - [Step2 基于不同优化方法进行强化学习，如PPO等](#step2-基于不同优化方法进行强化学习如ppo等)
+  - [注意事项](#注意事项)
+  - [参数解释](#参数解释)
+- [支持矩阵](#支持矩阵)
+- [显存实验](#显存实验)
+- [感谢](#感谢)
 
 
-## Step1 训练Reward Model
+## 目前支持的强化学习方法
+支持RLHF的Lora、Dora、Qlora、全量参数训练。
+
+- [x] Reward模型的训练
+- [x] RLOO
+- [x] PPO
+- SimPO、KTO及其他(待更新)
+
+
+
+## Quick Star
+
+### 数据格式要求
+强化学习的数据格式一般要求有如下三个字段:
+- prompt
+- chosen
+- rejected
+
+一般reward阶段需要chosen和rejected， RL阶段只需要prompt字段。
+
+huggingface上也有很多数据集，例如：```trl-internal-testing/hh-rlhf-helpful-base-trl-style```，因为我们要构建模型的的chat template，故数据格式稍有不同，prompt中必须包含```role```和```content```字段。
+
+数据格式为jsonl，具体可见示例数据：```rlhf/data_example/data.jsonl```
+
+### Step1 训练Reward Model
 
 第一步就是需要训练一个合格的奖励模型。这一步还是比较简单的，且也不用占用过多的显存。
 
 
+### Step2 基于不同优化方法进行强化学习，如PPO等
 
-## Step2 RL：基于不同优化方法进行强化学习，如DPO、PPO等
+**配置相关参数**
 
-PPO：目前zero3训练还有报错，暂未查明原因
+1、需要配置两个参数文件，第一个为```common_args.py``,主要是配置训练方式(Lora/Qlora)及RLHF优化方法(PPO、RLOO等)等。
 
+2、第二个文件为RLHF优化方法的相关文件, 主要都在```rlhf_args```文件夹内
 
+**deepspeed启动**
 
-一般来说trl的trainer是不支持使用deepspeed的optimizer和scheduler的
+注：使用deepspeed时需要通过accelerate进行使用，直接deepspeed的话会报错(目前似乎没有很好的解决方案)
 
-
-
-### 多卡训练注意
-使用deepspeed时最好通过accelerate进行使用，直接deepspeed的话会报错(目前似乎没有很好的解决方案)
-
-#### 建议方式
-所以使用zero-3的accelerate命令如下()：
 ```bash
-CUDA_VISIBLE_DEVICES=0 nohup accelerate launch --config_file ./deepspeed_zero3.yaml rloo_train2.py
+CUDA_VISIBLE_DEVICES=0 nohup accelerate launch --config_file ./ds_config/deepspeed_zero3.yaml rlhf_train.py
 ```
+运行上述命令，参数解释如下：
 - CUDA_VISIBLE_DEVICES：代表你要用的卡，可以指定多块，但是要在deepspeed_zero3.yaml文件中修改```num_processes```为对应数量
-- config_file: deepspeed的yaml文件路径，可以支持zero1/2/3
+- config_file: deepspeed的yaml文件路径，在```ds_config```文件夹下
+
+### 注意事项
+1、需要自己去看AutoModelForSequenceClassification是否可以加载其Classification模型，不能的话需要在其config文件中映射。
+
+2、涉及到reward模型时，需要两个模型的tokenizer相同。
+
+3、一般来说trl的trainer是不支持使用deepspeed的optimizer和scheduler的
+
+4、不支持Qlora和deepspeed zero-3，支持Qlora和deepspeed zero-2
 
 
 
-DPO终于也可以了，但是跟deepspeed适配还是有些问题，目前A100 40GB只能训2B的模型。因为zero3 offload会报莫名错误(即只能在非offload情况下训练，所以显存占用很高)，后续还需探讨如何优化。
+### 参数解释
 
-
-ds.yaml文件中main_process_port如果被占用则加一个数字即可。错误如下：
-
-> ConnectionError: Tried to launch distributed communication on port `29500`, but another process is utilizing it. Please specify a different port (such as using the `--main_process_port` flag or specifying a different `main_process_port` in your config file) and rerun your script. To automatically use the next open port (on a single node), you can set this to `0`.
+The num_train_epochs and num_ppo_epochs are actually two different things. The num_train_epochs means how many epochs do we go over the dataset, the num_ppo_epochs means the number of epochs we perform PPO updates on a batch of data. So, there is a subtle but meaningful difference here.
 
 
 
-### 支持矩阵
+## 支持矩阵
 ✅ 代表支持deepspeed 全策略
 
 | 支持方法/deepspeed | LORA(Dora) | QLORA | Full | Unsloth(待更新) |
@@ -76,7 +95,7 @@ ds.yaml文件中main_process_port如果被占用则加一个数字即可。错�
 
 
 
-### 显存实验
+## 显存实验
 res——length为64
 
 | **RLHF** | **deepspeed** | **方式** | **Reward Model** | **SFT Model**  | **显存占用**               |
@@ -89,70 +108,8 @@ res——length为64
 | PPO      | Zero 2        | Qlora  | MiniCPM(2B)      | Deepseek(6.7B) | 2 x A100(40GB): 30G    |
 
 
-注：
-#### RLOO：
-
-**RLOO 支持zero-3的offload_param，支持offload_optimizer**可见deepspeed_zero3.yaml示例.
-
-不支持Qlora和deepspeed zero-3：可能需要和get_peft_model才不会报错。
-
-deepspeed zero-3 支持Lora
-
-QWEN应该挺大，用deepseek 6.7B好一些
-   
-RLOO:  R:2B   S:7B
-                          optim  param
-accelerate 命令 LORA zero3  cpu     cpu ，res_length 64 : 成功  (30G内)  双卡A100(40G)
-
-accelerate 命令 QLORA zero3  cpu     cpu ，res_length 64 : 报错TypeError: output tensor must have the same type as input tensor 
-
-accelerate 命令 QLORA zero3  none    none ，res_length 64 : 报错TypeError: output tensor must have the same type as input tensor  故无关
 
 
-accelerate 命令 QLORA zero3  none    none ，res_length 64   单卡可以。 即单卡支持QLORA
+## 感谢
 
-破案了，QLora 只支持zero2及以下，不支持zero3。    zero2，zero3理论上都支持两个cpu     cpu。
-
-
-需要确定一下QLORA时  policy和ref是否都需要量化，可能会报bit冲突的错误。。试了一下  单模型QLORA是可以的。
-
-#### PPO：
-
-R:2B   S:6.7B
-                          optim  param
-accelerate 命令 LORA zero3  cpu     cpu ，res_length 64 :   失败  ，应该不支持zero3的param offload策略
-
-accelerate 命令 LORA zero2  cpu         ，res_length 64 :  OOM  双卡A100
-
-accelerate 命令 FULL zero2  cpu         ，res_length 64 :  OOM  双卡A100
-
-accelerate 命令 LORA zero2  cpu         ，res_length 64 :  OOM 三卡A100
-
-accelerate 命令 LORA zero3  cpu         ，res_length 64 :  报错 不支持zero3的optim offload 三卡A100
-
-accelerate 命令 LORA zero3  none   none     ，res_length 64 : oom
-
-初步结论只能结合ZERO-2进行 PPO的训练。
-
-accelerate 命令 QLORA only policy zero2  cpu         ，res_length 64 :  报错 看来zero2的 optim offload 也不支持 双卡A100
-
-
-上述可能是数据集有问题，增大长度重新测试。
-
-accelerate 命令 LORA zero3  cpu     cpu ，res_length 64 :   成功  且显存占用不高20G左右    双卡A100
-
-accelerate 命令 QLORA only policy zero3  cpu     cpu ，res_length 64 : 确实不支持zero3 + qlora， 报错如下 TypeErrorTypeError: : output tensor must have the same type as input tensoroutput tensor must have the same type as input tensor
-
-accelerate 命令 QLORA only policy zero2  cpu         ，res_length 64 :  成功  30GB左右   双卡A100
-
-accelerate 命令 FULL zero3  cpu   cpu      ，res_length 64 :   双卡A100   很慢  10-30GB
-
-
-所以后面重点是看如何适配qlora
-
-accelerate 命令 QLORA ref and policy zero3  cpu     cpu ，res_length 64 : 双卡A100  报错：output tensor 
-
-
-accelerate 命令 QLORA ref and policy zero3  cpu     cpu ，res_length 64 : 单卡A100  报错：output tensor 
-
-都不行  所以需要看如何适配qlora + deepspeed zero-3 了
+特别感谢huggingface trl做出的强大贡献，通过 trl 我们真的可以很容易简洁的实现RLHF。
