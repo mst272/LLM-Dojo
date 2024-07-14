@@ -51,7 +51,7 @@ huggingface上也有很多数据集，例如：```trl-internal-testing/hh-rlhf-h
 
 **配置相关参数**
 
-1、需要配置两个参数文件，第一个为```common_args.py``,主要是配置训练方式(Lora/Qlora)及RLHF优化方法(PPO、RLOO等)等。
+1、需要配置两个参数文件，第一个为```common_args.py```,主要是配置训练方式(Lora/Qlora)及RLHF优化方法(PPO、RLOO等)等。
 
 2、第二个文件为RLHF优化方法的相关文件, 主要都在```rlhf_args```文件夹内
 
@@ -96,7 +96,7 @@ The num_train_epochs and num_ppo_epochs are actually two different things. The n
 
 
 ## 显存实验
-res——length为64
+res_length为64
 
 | **RLHF** | **deepspeed** | **方式** | **Reward Model** | **SFT Model**  | **显存占用**               |
 |----------|---------------|--------|------------------|----------------|------------------------|
