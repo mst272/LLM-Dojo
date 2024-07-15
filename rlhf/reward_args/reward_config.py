@@ -19,7 +19,6 @@ class RewardConfig(TrainingArguments):
     max_length: Optional[int] = None
     """The maximum length of the sequences in the batch. This argument is required if you want to use the default data collator."""
 
-
     """
         训练参数, 直接在这里修改default即可
     """
@@ -50,5 +49,4 @@ class RewardConfig(TrainingArguments):
         "help": "Remove columns not required by the model when using an nlp.Dataset."})
     bf16: bool = field(default=True, metadata={"help": "是否使用bf16精度"})
 
-    # Deepspeed训练相关参数，不使用时设置为default=None
-    # deepspeed: Optional[str] = field(default=None, metadata={"help": "启用Deepspeed时需要的config文件"})
+

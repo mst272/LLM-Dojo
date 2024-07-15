@@ -44,8 +44,25 @@ huggingface上也有很多数据集，例如：```trl-internal-testing/hh-rlhf-h
 
 ### Step1 训练Reward Model
 
-第一步就是需要训练一个合格的奖励模型。这一步还是比较简单的，且也不用占用过多的显存。
+**配置相关参数**
 
+1、需要配置两个参数文件，都在```reward_args```内，第一个为```model_config.py```,主要配置模型相关，如是否lora、qlora等。
+
+2、第二个在```model_config.py```，主要配置训练相关参数。
+
+**启动**
+
+显存占用不算高，可以直接命令启动，也可以deepspeed启动(具体可见Step2中介绍)。
+```bash
+CUDA_VISIBLE_DEVICES=0 nohup accelerate launch --config_file ./ds_config/deepspeed_zero3.yaml reward_model.py
+```
+
+```bash
+python reward_model.py
+```
+
+注：
+训练Qwen2时遇到报错，提示```no padding token is defined```。需要在qwen2 ```config.json```中添加pad_token_id,在tokenizer中设置没用。
 
 ### Step2 基于不同优化方法进行强化学习，如PPO等
 
