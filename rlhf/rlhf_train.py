@@ -1,4 +1,6 @@
 import importlib
+import multiprocessing
+
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 from datasets import Dataset
 from transformers import (
@@ -48,8 +50,14 @@ def find_all_linear_names(model):
     return lora_module_names
 
 
-def load_data(datasets, tokenizer, config):
-    raw_datasets = pd.read_json(config.train_data_path, lines=True)
+def split_data(raw_datasets, eval_samples):
+    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+    return train_dataset, eval_dataset
+
+
+def load_data_prompt(tokenizer, train_data_path, eval_samples):
+    raw_datasets = pd.read_json(train_data_path, lines=True)
     for i in range(len(raw_datasets)):
         pro = raw_datasets['prompt'][i]
         res = tokenizer.apply_chat_template(pro, tokenize=False)
@@ -63,13 +71,16 @@ def load_data(datasets, tokenizer, config):
         )
         return {"input_ids": outputs["input_ids"]}
 
-    return datasets.map(
+    raw_datasets = raw_datasets.map(
         tokenize,
-        remove_columns=datasets.column_names,
+        remove_columns=raw_datasets.column_names,
         batched=True,
-        num_proc=4,  # multiprocessing.cpu_count(),
+        num_proc=multiprocessing.cpu_count(),  # multiprocessing.cpu_count(),
         load_from_cache_file=False,
     )
+    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+    return train_dataset, eval_dataset
 
 
 def load_data_chosen_rej():
@@ -138,32 +149,33 @@ def main():
     ################
     # Dataset
     ################
-    # raw_datasets = load_dataset(data_files=config.train_data_path, path='json', split='train')
-    raw_datasets = pd.read_json(config.train_data_path, lines=True)
-    for i in range(len(raw_datasets)):
-        pro = raw_datasets['prompt'][i]
-        res = tokenizer.apply_chat_template(pro, tokenize=False)
-        raw_datasets.loc[i, 'prompt'] = res
-    raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
-    eval_samples = config.eval_samples
-    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+    # raw_datasets = pd.read_json(config.train_data_path, lines=True)
+    # for i in range(len(raw_datasets)):
+    #     pro = raw_datasets['prompt'][i]
+    #     res = tokenizer.apply_chat_template(pro, tokenize=False)
+    #     raw_datasets.loc[i, 'prompt'] = res
+    # raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
+    # eval_samples = config.eval_samples
+    # train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+    # eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
 
     ################
     # Training
     ################
     if args.rlhf_type == 'RLOO':
+        train_dataset, eval_dataset = load_data_prompt(tokenizer, config.train_data_path, config.eval_samples)
         trainer = RLOOTrainer(
             config=config,
             tokenizer=tokenizer,
             policy=policy,
             ref_policy=ref_policy,
             reward_model=reward_model,
-            train_dataset=load_data(train_dataset, tokenizer),
-            eval_dataset=load_data(eval_dataset, tokenizer),
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
         )
 
     elif args.rlhf_type == 'PPO':
+        train_dataset, eval_dataset = load_data_prompt(tokenizer, config.train_data_path, config.eval_samples)
         value_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
                                                                          trust_remote_code=True)
         trainer = PPOv2Trainer(
@@ -173,18 +185,18 @@ def main():
             ref_policy=ref_policy,
             reward_model=reward_model,
             value_model=value_model,
-            train_dataset=load_data(train_dataset, tokenizer),
-            eval_dataset=load_data(eval_dataset, tokenizer),
-        )
-    elif args.rlhf_type == 'CPO':
-        trainer = CPOTrainer(
-            model,
-            args=cpo_args,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
-            peft_config=get_peft_config(model_config),
         )
+    # elif args.rlhf_type == 'CPO':
+    #     trainer = CPOTrainer(
+    #         policy,
+    #         args=cpo_args,
+    #         train_dataset=train_dataset,
+    #         eval_dataset=eval_dataset,
+    #         tokenizer=tokenizer,
+    #         peft_config=get_peft_config(model_config),
+    #     )
     else:
         raise Exception
     trainer.train()
