@@ -13,9 +13,6 @@ from transformers import (
 import pandas as pd
 import torch
 import torch.nn as nn
-from trl import CPOTrainer
-from trl.trainer.ppov2_trainer import PPOv2Trainer
-from trl.trainer.rloo_trainer import RLOOTrainer
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 from common_args import CommonArgs
 
@@ -163,6 +160,7 @@ def main():
     # Training
     ################
     if args.rlhf_type == 'RLOO':
+        from trl.trainer.rloo_trainer import RLOOTrainer
         train_dataset, eval_dataset = load_data_prompt(tokenizer, config.train_data_path, config.eval_samples)
         trainer = RLOOTrainer(
             config=config,
@@ -175,6 +173,7 @@ def main():
         )
 
     elif args.rlhf_type == 'PPO':
+        from trl.trainer.ppov2_trainer import PPOv2Trainer
         train_dataset, eval_dataset = load_data_prompt(tokenizer, config.train_data_path, config.eval_samples)
         value_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
                                                                          trust_remote_code=True)
@@ -189,6 +188,7 @@ def main():
             eval_dataset=eval_dataset,
         )
     # elif args.rlhf_type == 'CPO':
+    #     from trl import CPOTrainer
     #     trainer = CPOTrainer(
     #         policy,
     #         args=cpo_args,
