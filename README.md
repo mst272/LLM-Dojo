@@ -1,16 +1,32 @@
 
 # LLM-Dojo: 大模型修炼道场 😊
-<img src="pic/pic.jpg" width="300">
+<img src="pic/pic.jpg" width="320">
+
+"Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
-欢迎来到 LLM-Dojo，这里是一个开源大模型学习场所(最好的学习永远在项目中)，包括一个每个人都可以以此为基础构建自己的开源大模型训练框架流程、包括各种大模型的tricks实现与原理讲解的llm_tricks模块、主流模型的chat template模版。
+不同于其他优秀的开源训练框架的高度封装与集成，LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习**，每个人都能以此项目为基础自己构建与理解，且与大多开源框架相同均是基于huggingface，性能并不会有太多出入。
 主要内容如下：
-- ⛳ 1、开源大模型训练框架：每个人都可以根据本项目的代码学习及构建自己的开源大模型训练框架，细节代码主要集中在```utils```文件夹下，训练代码在```main_train.py```，各个部分的构建简洁清晰。
-- 🏓2、提供最新LLM tricks的详细讲解及使用：包括最新的微调方法及论文复现等，该模块主要集中在```llm_tricks```文件夹下。
-- ⚽ 3、提供主流模型chat template汇总：整合当前主流模型的chat template，以方便自己训练代码时数据处理及微调等操作，该模块主要集中在```chat_template```文件夹下。
+- **开源大模型训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora(Dora)、QLora、全参等训练，细节代码主要集中在```utils```文件夹下，训练代码在```main_train.py```。
+- **RLHF框架:** RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
+- **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
+- **主流模型chat template汇总:** 整合当前主流模型的chat template，以方便自己训练代码时数据处理及微调等操作，详情可见: [chat template](./chat_template/README.md)。
 
-"Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
+### 目录
+
+- [项目简介](#-项目简介)
+- [Latest News](#-latest-news)
+- [RLHF训练框架](#rlhf训练框架)
+- [项目规划及进展](#-项目规划及进展)
+  - [已支持微调模型](#已支持微调模型)
+  - [已更新tricks讲解](#已更新tricks讲解)
+  - [Chat Template汇总](#chat-template汇总)
+  - [技术发文](#技术发文)
+- [Quick Start](#quick-start)
+- [训练数据格式说明](#训练数据格式说明)
+- [致谢](#-致谢)
+
 ## 📖 Latest News
 - [2024-07-19] 🤓RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
 - [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
@@ -24,46 +40,15 @@ Tips: 图片完全由AI生成
 - [2024-04-28] 🚀 更新dora微调原理示例、支持qwen模型微调
 </details>
 
-## 🍻 模型 Chat Template总结
- [Chat Template总结](./chat_template/README.md)
+## RLHF训练框架
 
-在对模型进行微调操作时，数据的输入格式至关重要。
-
-因此，我从官方参考或实现中收集了主流模型的官方模板，都包含在上述文档中，以供大家自己进行微调时参考。
-
-***以下是部分示例：***
-### Qwen
-
-官方版本默认的system message即：You are a helpful assistant
-```text
-<|im_start|>system
-You are a helpful assistant<|im_end|>
-<|im_start|>user
-This is a instruction<|im_end|>
-<|im_start|>assistant
-This is a answer<|im_end|>
-```
-
-### DeepSeek：
-
-官方同样没有提供默认system message，有此需求可依据下述模板自己构建
-```text
-<｜begin▁of▁sentence｜>This is a system message
-User:This is a instruction
-Assistant:This is a answer<｜end▁of▁sentence｜>
-```
-
-- 无system模式
-```text
-<｜begin▁of▁sentence｜>User:This is a instruction
-Assistant:This is a answer<｜end▁of▁sentence｜>
-```
+RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行。
+详情可见: [RLHF](./rlhf/README.md)。
 
 ## 📊 项目规划及进展
 
-### 已支持模型
-Lora、Qlora、Dora微调:
-
+### 已支持微调模型
+支持基于Deepspeed的多卡/单卡 Lora、Qlora、Dora微调:
 - [x] [Qwen(Qwen1.5/Qwen2)](https://github.com/QwenLM/Qwen.git)
 - [x] [Yi](https://github.com/01-ai/Yi)
 - [x] [Gemma](https://github.com/google/gemma_pytorch)
@@ -72,11 +57,14 @@ Lora、Qlora、Dora微调:
 - [x] [MiniCPM](https://github.com/OpenBMB/MiniCPM)
 - [x] [Llama系列](https://github.com/meta-llama/llama3)
 - 待更新GLM、baichuan
-### 已支持tricks及原理讲解
+### 已更新tricks讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
 - [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
 - [从零实现MOE](./llm_tricks/moe/READEME.md)
+
+### Chat Template汇总
+-  [Chat Template总结](./chat_template/README.md)
 
 ### 技术发文
 - [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
@@ -87,7 +75,7 @@ Lora、Qlora、Dora微调:
 ## 🤓Quick Start
 包括SFT和DPO。
 
-目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**
+目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**。
 
 所有方式均支持Qlora、Lora、Dora方法。
 
@@ -139,7 +127,7 @@ deepspeed --include localhost:6,7 main_train.py
 
 ### 推理(Infer)
 
-## 😮训练数据
+## 😮训练数据格式说明
 本框架采用的SFT数据格式为***jsonl***形式，```instruction```代表输入，```output```代表输出
 
 示例如下:
@@ -149,17 +137,11 @@ deepspeed --include localhost:6,7 main_train.py
 
 对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
 
-## 🤝 社区参与
-LLM Dojo 期待你的加入！🪂
-
-无论是提出问题（Issue）还是贡献代码（Pull Request），都是对项目的巨大支持。
-
-## 💌 联系方式
-- Email: sdwzh272@163.com
 
 ***
 
-**感谢！** 📘
+## 🤝 致谢！
+项目学习了优秀开源项目，感谢huggingface、流萤等及一些国内外小伙伴的开源项目。
 
-项目学习了优秀开源项目，感谢huggingface、流萤等及一些国内小伙伴的开源项目
+LLM Dojo 期待你的加入。🪂 无论是提出问题（Issue）还是贡献代码（Pull Request），都是对项目的巨大支持。
 ***
