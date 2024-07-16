@@ -17,6 +17,7 @@
 - [llama2](#llama2)
 - [llama3](#llama3)
 - [MiniCPM](#minicpm)
+- [DeepSeek-coder](#deepseek-coder)
 
 ## 说明
  不同模型在是否存在默认system message上有所不同(大多数模型都是没有的)，所以以官方是否有为标准。
@@ -131,4 +132,23 @@ This is the first assistant response.<|eot_id|>
 ### MiniCPM
 ```text
 <用户>This is a system message<AI>This is a instruction</s>
+```
+
+### DeepSeek-coder
+```text
+<｜begin▁of▁sentence｜>User: {user_message_1}
+
+Assistant: {assistant_message_1}<｜end▁of▁sentence｜>User: {user_message_2}
+
+Assistant:
+```
+You can also add an optional system message:
+```text
+<｜begin▁of▁sentence｜>{system_message}
+
+User: {user_message_1}
+
+Assistant: {assistant_message_1}<｜end▁of▁sentence｜>User: {user_message_2}
+
+Assistant:
 ```

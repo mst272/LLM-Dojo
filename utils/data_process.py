@@ -166,7 +166,7 @@ class DpoDataset(Dataset):
     def __getitem__(self, item):
         data = self.data_list[item]
         data = json.loads(data)  # 将json格式转换为python字典
-        prompt =  data['prompt']
+        prompt = data['prompt']
         chosen = data['chosen']
         rejected = data['rejected']
         # 对prompt进行编码

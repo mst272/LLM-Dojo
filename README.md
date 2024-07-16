@@ -2,8 +2,6 @@
 # LLM-Dojo: 大模型修炼道场 😊
 <img src="pic/pic.jpg" width="320">
 
-"Dojo"一词借用了其在武术训练中的寓意，象征着一个专注于学习和实践的场所。
-
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
 不同于其他优秀的开源训练框架的高度封装与集成，LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习**，每个人都能以此项目为基础自己构建与理解，且与大多开源框架相同均是基于huggingface，性能并不会有太多出入。
@@ -11,7 +9,7 @@ Tips: 图片完全由AI生成
 - **开源大模型训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora(Dora)、QLora、全参等训练，细节代码主要集中在```utils```文件夹下，训练代码在```main_train.py```。
 - **RLHF框架:** RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
 - **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
-- **主流模型chat template汇总:** 整合当前主流模型的chat template，以方便自己训练代码时数据处理及微调等操作，详情可见: [chat template](./chat_template/README.md)。
+- **主流模型chat template汇总:** 整合当前主流模型的chat template，以方便自己训练代码时数据处理及微调等操作，详情可见: [Chat Template](./chat_template/README.md)。
 
 ### 目录
 
@@ -56,6 +54,7 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 - [x] [Deepseek](https://github.com/deepseek-ai/DeepSeek-LLM)
 - [x] [MiniCPM](https://github.com/OpenBMB/MiniCPM)
 - [x] [Llama系列](https://github.com/meta-llama/llama3)
+- [x] [deepseek-coder](https://github.com/deepseek-ai/DeepSeek-Coder)
 - 待更新GLM、baichuan
 ### 已更新tricks讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
@@ -136,9 +135,6 @@ deepspeed --include localhost:6,7 main_train.py
 ```
 
 对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
-
-
-***
 
 ## 🤝 致谢！
 项目学习了优秀开源项目，感谢huggingface、流萤等及一些国内外小伙伴的开源项目。

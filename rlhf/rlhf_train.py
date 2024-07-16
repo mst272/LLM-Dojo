@@ -11,6 +11,7 @@ from transformers import (
 import pandas as pd
 import torch
 import torch.nn as nn
+from trl import CPOTrainer
 from trl.trainer.ppov2_trainer import PPOv2Trainer
 from trl.trainer.rloo_trainer import RLOOTrainer
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
@@ -47,7 +48,14 @@ def find_all_linear_names(model):
     return lora_module_names
 
 
-def load_data(datasets, tokenizer):
+def load_data(datasets, tokenizer, config):
+    raw_datasets = pd.read_json(config.train_data_path, lines=True)
+    for i in range(len(raw_datasets)):
+        pro = raw_datasets['prompt'][i]
+        res = tokenizer.apply_chat_template(pro, tokenize=False)
+        raw_datasets.loc[i, 'prompt'] = res
+    raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
+
     def tokenize(element):
         outputs = tokenizer(
             element['prompt'],
@@ -62,6 +70,10 @@ def load_data(datasets, tokenizer):
         num_proc=4,  # multiprocessing.cpu_count(),
         load_from_cache_file=False,
     )
+
+
+def load_data_chosen_rej():
+    pass
 
 
 def main():
@@ -163,6 +175,15 @@ def main():
             value_model=value_model,
             train_dataset=load_data(train_dataset, tokenizer),
             eval_dataset=load_data(eval_dataset, tokenizer),
+        )
+    elif args.rlhf_type == 'CPO':
+        trainer = CPOTrainer(
+            model,
+            args=cpo_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=tokenizer,
+            peft_config=get_peft_config(model_config),
         )
     else:
         raise Exception
