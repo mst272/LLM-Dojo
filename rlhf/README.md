@@ -24,14 +24,15 @@
 - ✅ Reward模型的训练
 - ✅ RLOO
 - ✅ PPO
-- SimPO、KTO及其他(待更新)
+- ✅ SimPO
+- ✅ CPO
+- ✅ CPO-SimPO
 
 
 
 ## Quick Star
 
 ### 数据格式要求
-**PPO、RLOO：**
 
 数据格式要求有如下三个字段:
 - prompt
@@ -43,9 +44,6 @@ reward阶段需要chosen和rejected， RL阶段只需要prompt字段。
 huggingface上也有很多数据集，例如：```trl-internal-testing/hh-rlhf-helpful-base-trl-style```，因为我们要构建模型的的chat template，故数据格式稍有不同，prompt中必须包含```role```和```content```字段。
 
 数据格式为jsonl，具体可见示例数据：```rlhf/data_example/data.jsonl```
-
-**KTO:**
-
 
 
 ### Step1 训练Reward Model

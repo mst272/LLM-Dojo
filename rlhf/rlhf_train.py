@@ -80,8 +80,16 @@ def load_data_prompt(tokenizer, train_data_path, eval_samples):
     return train_dataset, eval_dataset
 
 
-def load_data_chosen_rej():
-    pass
+def load_data_all(tokenizer, train_data_path, eval_samples):
+    raw_datasets = pd.read_json(train_data_path, lines=True)
+    for i in range(len(raw_datasets)):
+        raw_datasets.loc[i, 'prompt'] = tokenizer.apply_chat_template(raw_datasets['prompt'][i], tokenize=False)
+        raw_datasets.loc[i, 'chosen'] = tokenizer.apply_chat_template(raw_datasets['chosen'][i], tokenize=False)
+        raw_datasets.loc[i, 'rejected'] = tokenizer.apply_chat_template(raw_datasets['rejected'][i], tokenize=False)
+    raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
+    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+    return train_dataset, eval_dataset
 
 
 def main():
@@ -187,21 +195,22 @@ def main():
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
         )
-    # elif args.rlhf_type == 'CPO':
-    #     from trl import CPOTrainer
-    #     trainer = CPOTrainer(
-    #         policy,
-    #         args=cpo_args,
-    #         train_dataset=train_dataset,
-    #         eval_dataset=eval_dataset,
-    #         tokenizer=tokenizer,
-    #         peft_config=get_peft_config(model_config),
-    #     )
+    # todo: 更优雅的方式实现？
+    elif args.rlhf_type in ['CPO', 'SimPO', 'CPOSimPO']:
+        from trl import CPOTrainer
+        train_dataset, eval_dataset = load_data_all(tokenizer, config.train_data_path, config.eval_samples)
+        trainer = CPOTrainer(
+            policy,
+            args=config,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=tokenizer,
+        )
     else:
         raise Exception
     trainer.train()
     trainer.save_model(config.output_dir)
-    trainer.generate_completions()
+    # trainer.generate_completions()
 
 
 if __name__ == "__main__":
