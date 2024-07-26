@@ -2,14 +2,21 @@
 一般来说这里的参数是各个模型都通用的
 """
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional, Union, List, Literal, Dict
 from transformers import TrainingArguments, SchedulerType, IntervalStrategy
 from transformers.training_args import OptimizerNames
 from trl import DPOConfig
 
 
+class FDivergenceType(Enum):
+    REVERSE_KL = "reverse_kl"
+    JS_DIVERGENCE = "js_divergence"
+    ALPHA_DIVERGENCE = "alpha_divergence"
+
+
 @dataclass
-class TrainArgument(TrainingArguments):
+class TrainArgument(TrainingArguments, DPOConfig):
     """
     训练参数, 直接在这里修改default即可
     """
@@ -47,8 +54,9 @@ class TrainArgument(TrainingArguments):
     fp16: bool = field(default=False, metadata={"help": "Whether to use fp16 (mixed) precision instead of 32-bit"})
 
     # Deepspeed训练相关参数，不使用时设置为default=None
-    deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json', metadata={"help": "启用Deepspeed时需要的config文件"})
-# ---------------------------------------------------------------------------------------------------------------------
+    deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json',
+                                     metadata={"help": "启用Deepspeed时需要的config文件"})
+    # ---------------------------------------------------------------------------------------------------------------------
     # 上面参数是常规TrainingArguments设置，下面参数则是dpo配置参数。下面为DPOConfig默认配置。
     beta: float = 0.1
     label_smoothing: float = 0
@@ -72,9 +80,9 @@ class TrainArgument(TrainingArguments):
     ref_adapter_name: Optional[str] = None
     reference_free: bool = False
     force_use_ref_model: bool = False
+    f_divergence_type: Optional[FDivergenceType] = FDivergenceType.REVERSE_KL
+    f_alpha_divergence_coef: Optional[float] = 1.0
     sync_ref_model: bool = False
     ref_model_mixup_alpha: float = 0.9
     ref_model_sync_steps: int = 64
     rpo_alpha: Optional[float] = None
-
-
