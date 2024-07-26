@@ -16,7 +16,7 @@ class FDivergenceType(Enum):
 
 
 @dataclass
-class TrainArgument(TrainingArguments, DPOConfig):
+class TrainArgument(DPOConfig):
     """
     训练参数, 直接在这里修改default即可
     """
