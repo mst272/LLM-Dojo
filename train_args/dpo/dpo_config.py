@@ -1,10 +1,7 @@
-"""
-一般来说这里的参数是各个模型都通用的
-"""
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Union, List, Literal, Dict
-from transformers import TrainingArguments, SchedulerType, IntervalStrategy
+from transformers import SchedulerType, IntervalStrategy
 from transformers.training_args import OptimizerNames
 from trl import DPOConfig
 

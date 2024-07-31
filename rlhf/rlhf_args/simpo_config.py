@@ -6,7 +6,7 @@ from cpo_config import CPOConfig
 @dataclass
 class SimPOConfig(CPOConfig):
     """
-    基于CPOConfig，只需修改
+    基于CPOConfig，只需修改CPO的loss type为simpo，cpo_alpha设为0即可
     """
     loss_type: Literal["sigmoid", "hinge", "ipo", "simpo"] = "simpo"
     """The type of loss to use."""

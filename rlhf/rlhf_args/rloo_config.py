@@ -1,21 +1,18 @@
 import os
 from dataclasses import dataclass, field
 from typing import Optional, Union, Literal
-from transformers import TrainingArguments
 from transformers.training_args import OptimizerNames
-from trl.trainer.utils import OnpolicyRuntimeConfig
-
+from trl.trainer.rloo_trainer import RLOOConfig
 
 # 支持直接通过total_episodes确定训练步数，也支持通过在TrainingArguments中配置num_train_epochs确定训练步数。
 @dataclass
-class RLOOConfig(OnpolicyRuntimeConfig, TrainingArguments):
+class RLOOConfig(RLOOConfig):
     # common config
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
     """the name of this experiment"""
     run_name: Optional[str] = None
     """a unique name of this run"""
-    eval_samples: int = 10
-    """the number of eval samples"""
+
 
     # batch size related config
     num_mini_batches: int = 1
@@ -28,7 +25,7 @@ class RLOOConfig(OnpolicyRuntimeConfig, TrainingArguments):
     """the number of debugging samples generations (i.e., `generate_completions` calls) throughout training"""
 
     # other config
-    response_length: int = 53
+    response_length: int = 55
     """the length of the response"""
     stop_token: Optional[Literal["eos"]] = 'eos'
     """the stop token"""

@@ -1,12 +1,12 @@
 import os
 from dataclasses import dataclass, field
 from typing import Optional, Union, List, Literal
-from transformers import TrainingArguments, SchedulerType, IntervalStrategy
+from transformers import SchedulerType, IntervalStrategy
 from transformers.training_args import OptimizerNames
-from trl.trainer.utils import OnpolicyRuntimeConfig
+from trl.trainer.ppov2_trainer import PPOv2Config
 
 @dataclass
-class PPOConfig(OnpolicyRuntimeConfig, TrainingArguments):
+class PPOConfig(PPOv2Config):
     # common config
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
     """the name of this experiment"""
@@ -25,9 +25,6 @@ class PPOConfig(OnpolicyRuntimeConfig, TrainingArguments):
     num_sample_generations: int = 10
     """the number of debugging samples generations (i.e., `generate_completions` calls) throughout training"""
 
-    # other config
-    # base_model: str = "EleutherAI/pythia-160m"
-    # """the name of the pretrained model to use"""
     response_length: int = 53
     """the length of the response"""
     stop_token: Optional[Literal["eos"]] = None
