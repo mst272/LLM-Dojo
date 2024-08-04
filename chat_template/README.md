@@ -118,7 +118,7 @@ If a question does not make any sense, or is not factually coherent, explain why
 There's a llama in my garden 😱 What should I do? [/INST] This is a answer</s>
 ```
 
-### Llama3
+### Llama3&3.1
 ```text
 <|begin_of_text|><|start_header_id|>system<|end_header_id|>
 

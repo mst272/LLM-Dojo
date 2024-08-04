@@ -26,6 +26,7 @@ Tips: 图片完全由AI生成
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-08-04] 🤓支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
 - [2024-07-19] 🤓RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
 - [2024-07-16] 🤓RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
 - [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
@@ -47,6 +48,7 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 ## 📊 项目规划及进展
 
 ### 已支持微调模型
+理论上支持对所有模型的微调
 支持基于Deepspeed的多卡/单卡 Lora、Qlora、Dora微调:
 - [x] [Qwen(Qwen1.5/Qwen2)](https://github.com/QwenLM/Qwen.git)
 - [x] [Yi](https://github.com/01-ai/Yi)
@@ -73,12 +75,21 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 - [DPO训练QWEN2及魔改DPO实现](https://zhuanlan.zhihu.com/p/702569978)
 
 ## 😮训练数据格式说明
-本框架采用的SFT数据格式为***jsonl***形式，```instruction```代表输入，```output```代表输出
+本框架采用的SFT数据格式无论单轮对话或多轮对话均为***jsonl***形式。无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。
 
-示例如下:
+单轮对话即message字段中只有一对user和assistant，多轮对话则有多对。
+
+示例如下，示例文件可参见```data/sft_data.jsonl```:
 ```json lines
-{"instruction":"将这个句子改写成将来时态：“太阳将会照耀明亮。”","output":"太阳将会散发温暖的光芒。"}
+{"message": [{"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"},{"role": "user", "content": "How many helicopters can a human eat in one sitting"},{"role": "assistant", "content": "Sure! Here are some ways to eat bananas and dragonfruits together"},{"role": "user", "content": "你好"},{"role": "assistant", "content": "hellow"}]}
 ```
+
+可根据需求自行决定是否增加system字段，例如不需要或修改system则只需将上述示例数据中的
+
+```{"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"}```
+
+删除或修改conten即可。**建议训练数据没有特殊需求不必增加system字段**
+
 
 对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
 

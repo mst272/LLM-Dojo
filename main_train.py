@@ -8,7 +8,7 @@ from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Traine
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 import bitsandbytes as bnb
 from utils.template import template_dict
-from utils.data_process import CommonSingleRoundDataProcess, DpoDataset
+from utils.data_process import MultiRoundDataProcess, DpoDataset
 from utils.data_collator import SftDataCollator
 from utils.args import CommonArgs
 import importlib
@@ -161,11 +161,10 @@ def create_model(args, train_args):
 
 
 def load_sft_dataset(args, tokenizer):
-    if args.template_name not in template_dict.keys():
-        raise Exception(f"template_name doesn't exist, all template_name: {template_dict.keys()}")
-    template = template_dict[args.template_name]
-    logger.info('Loading data with CommonSingleRoundDataProcess')
-    train_dataset = CommonSingleRoundDataProcess(args.train_data_path, tokenizer, args.max_len, template)
+    # if args.template_name not in template_dict.keys():
+    #     raise Exception(f"template_name doesn't exist, all template_name: {template_dict.keys()}")
+    # template = template_dict[args.template_name]
+    train_dataset = MultiRoundDataProcess(args.train_data_path, tokenizer, args.max_len)
     return train_dataset
 
 
