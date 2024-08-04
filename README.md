@@ -29,12 +29,12 @@ Tips: 图片完全由AI生成
 - [2024-08-04] 🤓支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
 - [2024-07-19] 🤓RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
 - [2024-07-16] 🤓RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
-- [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
 - [2024-06-9] 🚀支持DPO训练，分为单轮对话DPO(自己构建，方便魔改)和多轮对话DPO(简洁实现)，支持deepspeed的lora和qlora，具体介绍可见 [DPO使用说明](./train_args/dpo/README.md)
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
-- [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora、全量微调等训练！！(即将增加全量训练)
 <details> <summary>More news...</summary>
 
+- [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
+- [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora、全量微调等训练！
 - [2024-05-13] 🚀 更新各大模型的Chat Template
 - [2024-05-06] 🚀 支持Qwen、Yi模型的Lora、Qlora、Dora微调
 - [2024-04-28] 🚀 更新dora微调原理示例、支持qwen模型微调
@@ -48,17 +48,20 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 ## 📊 项目规划及进展
 
 ### 已支持微调模型
-理论上支持对所有模型的微调
+理论上支持对所有模型的微调,下述仅为测试过。
+
 支持基于Deepspeed的多卡/单卡 Lora、Qlora、Dora微调:
 - [x] [Qwen(Qwen1.5/Qwen2)](https://github.com/QwenLM/Qwen.git)
 - [x] [Yi](https://github.com/01-ai/Yi)
-- [x] [Gemma](https://github.com/google/gemma_pytorch)
+- [x] [Gemma系列](https://github.com/google/gemma_pytorch)
 - [x] [Phi-3](https://huggingface.co/microsoft/Phi-3-mini-128k-instruct)
 - [x] [Deepseek](https://github.com/deepseek-ai/DeepSeek-LLM)
 - [x] [MiniCPM](https://github.com/OpenBMB/MiniCPM)
 - [x] [Llama系列](https://github.com/meta-llama/llama3)
 - [x] [deepseek-coder](https://github.com/deepseek-ai/DeepSeek-Coder)
-- 待更新GLM、baichuan
+- [x] [哔哩哔哩 Index-1.9B](https://github.com/bilibili/Index-1.9B)
+- [x] [baichuan系列](https://github.com/baichuan-inc/Baichuan2)
+- 待更新GLM
 ### 已更新tricks讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
