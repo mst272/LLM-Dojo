@@ -4,8 +4,9 @@ from loguru import logger
 import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Trainer, \
-    BitsAndBytesConfig, HfArgumentParser, set_seed
+    BitsAndBytesConfig, HfArgumentParser, set_seed, TrainingArguments
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
+from train_args import dpo_TrainArgument, sft_TrainArgument
 import bitsandbytes as bnb
 from utils.template import template_dict
 from utils.data_process import MultiRoundDataProcess, DpoDataset
@@ -33,10 +34,20 @@ def load_config(train_args_path):
 def initial_args():
     # parser = HfArgumentParser((CommonArgs, TrainArgument))
     # reward_args, train_args = parser.parse_args_into_dataclasses()
-    parser = HfArgumentParser((CommonArgs,))
-    args = parser.parse_args_into_dataclasses()[0]
+    # parser = HfArgumentParser((CommonArgs,))
+    # args = parser.parse_args_into_dataclasses()[0]
+    # print(args.task_type)
+    # if 'dpo' in args.task_type:
+    #     parser = HfArgumentParser((CommonArgs, dpo_TrainArgument))
+    # else:
+    #     parser = HfArgumentParser((CommonArgs, sft_TrainArgument))
+    parser = HfArgumentParser((CommonArgs, sft_TrainArgument))
+    args, train_args = parser.parse_args_into_dataclasses()
+    # print(args, train_args)
+
     # 根据CommonArgs中的config_option动态加载配置
-    train_args = load_config(args.train_args_path)
+    if not train_args:
+        train_args = load_config(args.train_args_path)
 
     if not os.path.exists(train_args.output_dir):
         os.mkdir(train_args.output_dir)
