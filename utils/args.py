@@ -20,7 +20,7 @@ class CommonArgs:
     一些常用的自定义参数
     """
     # Deepspeed相关参数
-    local_rank: int = field(default=1, metadata={"help": "deepspeed所需参数,单机无需修改"})
+    # local_rank: int = field(default=1, metadata={"help": "deepspeed所需参数,单机无需修改"})
 
     train_args_path: TrainArgPath = field(default=TrainArgPath.SFT_LORA_QLORA_BASE.value,
                                           metadata={"help": "当前模式的训练参数,分为sft和dpo参数"})
