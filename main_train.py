@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Trainer, \
     BitsAndBytesConfig, HfArgumentParser, set_seed
-from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, cast_mixed_precision_params
 import bitsandbytes as bnb
 from utils.template import template_dict
 from utils.data_process import MultiRoundDataProcess, DpoDataset
@@ -95,7 +95,7 @@ def create_model(args, train_args):
     logger.info(f'Loading model from base model: {args.model_name_or_path}')
     logger.info(f'Train model with {args.train_mode}')
     # 确定训练的精度
-    torch_dtype = torch.float16 if train_args.fp16 else torch.bfloat16
+    torch_dtype = torch.bfloat16 if train_args.bf16 else torch.float32
     model_kwargs = dict(
         trust_remote_code=True,
         torch_dtype=torch_dtype,
@@ -147,6 +147,8 @@ def create_model(args, train_args):
     # peft_model 配置
     if args.train_mode in ['lora', 'qlora'] and args.task_type in ['pretrain', 'sft']:
         model = get_peft_model(model, peft_config)
+        if not train_args.bf16:
+            cast_mixed_precision_params(model, dtype=torch.float16)
         logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
         model.print_trainable_parameters()
 
