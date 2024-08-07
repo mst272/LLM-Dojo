@@ -61,7 +61,8 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 - [x] [deepseek-coder](https://github.com/deepseek-ai/DeepSeek-Coder)
 - [x] [哔哩哔哩 Index-1.9B](https://github.com/bilibili/Index-1.9B)
 - [x] [baichuan系列](https://github.com/baichuan-inc/Baichuan2)
-- 待更新GLM
+- [x] [GLM系列](https://github.com/THUDM/GLM-4)
+- 待更新Mistral系列
 ### 已更新tricks讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)

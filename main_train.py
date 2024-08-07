@@ -6,6 +6,7 @@ import torch.nn as nn
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Trainer, \
     BitsAndBytesConfig, HfArgumentParser, set_seed
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, cast_mixed_precision_params
+from train_args import dpo_TrainArgument, sft_TrainArgument
 import bitsandbytes as bnb
 from utils.template import template_dict
 from utils.data_process import MultiRoundDataProcess, DpoDataset
@@ -31,8 +32,6 @@ def load_config(train_args_path):
 
 
 def initial_args():
-    # parser = HfArgumentParser((CommonArgs, TrainArgument))
-    # reward_args, train_args = parser.parse_args_into_dataclasses()
     parser = HfArgumentParser((CommonArgs,))
     args = parser.parse_args_into_dataclasses()[0]
     # 根据CommonArgs中的config_option动态加载配置
