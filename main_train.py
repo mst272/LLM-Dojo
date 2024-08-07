@@ -32,15 +32,6 @@ def load_config(train_args_path):
 
 
 def initial_args():
-    # parser = HfArgumentParser((CommonArgs, TrainArgument))
-    # reward_args, train_args = parser.parse_args_into_dataclasses()
-    # parser = HfArgumentParser((CommonArgs,))
-    # args = parser.parse_args_into_dataclasses()[0]
-    # print(args.task_type)
-    # if 'dpo' in args.task_type:
-    #     parser = HfArgumentParser((CommonArgs, dpo_TrainArgument))
-    # else:
-    #     parser = HfArgumentParser((CommonArgs, sft_TrainArgument))
     parser = HfArgumentParser((CommonArgs, sft_TrainArgument))
     args, train_args = parser.parse_args_into_dataclasses()
     # print(args, train_args)
