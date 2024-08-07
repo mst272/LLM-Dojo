@@ -12,30 +12,26 @@ from utils.template import template_dict
 from utils.data_process import MultiRoundDataProcess, DpoDataset
 from utils.data_collator import SftDataCollator
 from utils.args import CommonArgs
-import importlib
 from datasets import load_dataset
 from trl import DPOTrainer
 
 
-def load_config(train_args_path):
-    # 根据config_option加载相应的配置
-    module_path = train_args_path.replace("/", ".").rstrip(".py")
-    # 动态导入模块
-    module = importlib.import_module(module_path)
-    # 每个模块导入的类名均为TrainArgument
-    class_name = "TrainArgument"
-
-    # 使用getattr获取模块中的类
-    TrainArgument = getattr(module, class_name)
-    train_argument = TrainArgument()
-    return train_argument
-
-
 def initial_args():
     parser = HfArgumentParser((CommonArgs,))
-    args = parser.parse_args_into_dataclasses()[0]
+    # args = parser.parse_args_into_dataclasses()[0]
+    args, remaining_args = parser.parse_args_into_dataclasses(return_remaining_strings=True)
     # 根据CommonArgs中的config_option动态加载配置
-    train_args = load_config(args.train_args_path)
+    # train_args = load_config(args.train_args_path)
+    if args.train_args_path == "sft_args":
+        parser_b = HfArgumentParser((sft_TrainArgument,))
+        train_args, = parser_b.parse_args_into_dataclasses(args=remaining_args)
+        print("Loaded instance sft_args")
+    elif args.train_args_path == "dpo_args":
+        parser_c = HfArgumentParser((dpo_TrainArgument,))
+        train_args, = parser_c.parse_args_into_dataclasses(args=remaining_args)
+        print(f"Loaded instance dpo_args")
+    else:
+        raise ValueError("Invalid train_args_path choice")
 
     if not os.path.exists(train_args.output_dir):
         os.mkdir(train_args.output_dir)
@@ -79,7 +75,7 @@ def create_tokenizer(args):
         tokenizer.pad_token_id = tokenizer.eod_id
         tokenizer.bos_token_id = tokenizer.eod_id
         tokenizer.eos_token_id = tokenizer.eod_id
-    if tokenizer.bos_token is None:   # qwen没有bos_token，要设置一下，不然dpo train时会报错。
+    if tokenizer.bos_token is None:  # qwen没有bos_token，要设置一下，不然dpo train时会报错。
         tokenizer.add_special_tokens({"bos_token": tokenizer.eos_token})
         tokenizer.bos_token_id = tokenizer.eos_token_id
 

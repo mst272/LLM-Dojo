@@ -10,8 +10,8 @@ class TrainMode(Enum):
 
 
 class TrainArgPath(Enum):
-    SFT_LORA_QLORA_BASE = 'train_args/sft/lora_qlora/base.py'
-    DPO_LORA_QLORA_BASE = 'train_args/dpo/dpo_config.py'
+    SFT_LORA_QLORA_BASE = 'sft_args'
+    DPO_LORA_QLORA_BASE = 'dpo_args'
 
 
 @dataclass
@@ -22,7 +22,7 @@ class CommonArgs:
     # Deepspeed相关参数
     local_rank: int = field(default=1, metadata={"help": "deepspeed所需参数,单机无需修改，如出现报错可注释掉"})
 
-    train_args_path: TrainArgPath = field(default=TrainArgPath.SFT_LORA_QLORA_BASE.value,
+    train_args_path: TrainArgPath = field(default='sft_args',
                                           metadata={"help": "当前模式的训练参数,分为sft和dpo参数"})
     max_len: int = field(default=1024, metadata={"help": "最大输入长度,dpo时该参数在dpo_config中设置"})
     max_prompt_length: int = field(default=512, metadata={
