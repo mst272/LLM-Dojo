@@ -32,13 +32,10 @@ def load_config(train_args_path):
 
 
 def initial_args():
-    parser = HfArgumentParser((CommonArgs, sft_TrainArgument))
-    args, train_args = parser.parse_args_into_dataclasses()
-    # print(args, train_args)
-
+    parser = HfArgumentParser((CommonArgs,))
+    args = parser.parse_args_into_dataclasses()[0]
     # 根据CommonArgs中的config_option动态加载配置
-    if not train_args:
-        train_args = load_config(args.train_args_path)
+    train_args = load_config(args.train_args_path)
 
     if not os.path.exists(train_args.output_dir):
         os.mkdir(train_args.output_dir)
