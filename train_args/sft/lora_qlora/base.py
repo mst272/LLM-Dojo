@@ -20,15 +20,13 @@ class TrainArgument(TrainingArguments):
     learning_rate: float = field(default=2e-4, metadata={"help": "学习率"})
     logging_steps: int = field(default=100, metadata={"help": "打印的步长"})
     save_steps: int = field(default=500, metadata={"help": "多少步长保存一次"})
-    evaluation_strategy: Union[IntervalStrategy, str] = field(default="no", metadata={"help": "The evaluation "
-                                                                                              "strategy to use."}, )
-    save_strategy: Union[IntervalStrategy, str] = field(default="epoch", metadata={"help": "The checkpoint save "
+    save_strategy: Union[IntervalStrategy, str] = field(default="steps", metadata={"help": "The checkpoint save "
                                                                                            "strategy to use."}, )
-    save_total_limit: Optional[int] = field(default=2, metadata={"help": "If a value is passed, will limit the total "
-                                                                         "amount of checkpoints. Deletes the older "
-                                                                         "checkpoints in"})
+    save_total_limit: Optional[int] = field(default=2, metadata={"help": "保存的限制总量"})
     lr_scheduler_type: Union[SchedulerType, str] = field(default="cosine",
                                                          metadata={"help": "The scheduler type to use."})
+    lr_scheduler_kwargs: dict = field(default_factory=lambda: {},
+                                      metadata={"help": "lr_scheduler的额外参数，例如 {'num_cycles': 1}"})
     warmup_steps: int = field(default=10, metadata={"help": "Linear warmup over warmup_steps."})
     optim: Union[OptimizerNames, str] = field(default='adamw_torch', metadata={"help": "The optimizer to use."})
     seed: int = field(default=42, metadata={"help": "Random seed that will be set at the beginning of training."})
@@ -44,5 +42,5 @@ class TrainArgument(TrainingArguments):
     fp16: bool = field(default=False, metadata={"help": "Whether to use fp16 (mixed) precision instead of 32-bit"})
 
     # Deepspeed训练相关参数，不使用时设置为default=None
-    deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json', metadata={"help": "启用Deepspeed时需要的config文件"})
-
+    deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json',
+                                     metadata={"help": "启用Deepspeed时需要的config文件"})

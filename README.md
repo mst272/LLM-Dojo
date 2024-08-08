@@ -26,6 +26,7 @@ Tips: 图片完全由AI生成
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-08-08] 🤓支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
 - [2024-08-04] 🤓支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
 - [2024-07-19] 🤓RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
 - [2024-07-16] 🤓RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
@@ -73,10 +74,13 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 -  [Chat Template总结](./chat_template/README.md)
 
 ### 技术发文
+<details> <summary>More news...</summary>
+
 - [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
 - [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
 - [一步一步实现Transformer代码](https://medium.com/@sdwzh2725/transformer-code-step-by-step-understandingtransformer-d2ea773f15fa)
 - [DPO训练QWEN2及魔改DPO实现](https://zhuanlan.zhihu.com/p/702569978)
+</details>
 
 ## 😮训练数据格式说明
 本框架采用的SFT数据格式无论单轮对话或多轮对话均为***jsonl***形式。无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。
@@ -97,6 +101,13 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 
 对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
 
+### 适配框架数据处理
+鉴于框架指定格式数据可能会跟常规数据有些不同，故可以通过```generate_data.py```文件进行处理，输入应为正常的instruction和output的jsonl格式文件，
+如下：
+```json lines
+{"instruction":"将这个句子改写成将来时态：“太阳将会照耀明亮。”","output":"太阳将会散发温暖的光芒。"}
+```
+运行后即可得到无system的user、assistant指定格式。
 
 ## 🤓Quick Start
 包括SFT和DPO。
@@ -107,17 +118,21 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 
 ### SFT微调(FineTune)
 
+**1、支持命令行传参启动，启动示例可见```run_example.sh```**
+
+**2、也支持参数文件直接修改默认值，具体如下：**
+
 #### Step1 配置args.py
 不同的微调方法有不同的配置，但大体都是类似的，基本默认设置即可，你只需要改一下模型路径、输出路径等等。
 
 常规的参数在utils下的args.py。
 
 其中:
-> train_args_path：为Step2中需要配置的train_args路径
+> train_args_path：为Step2中需要配置的参数，可选sft_args和dpo_args，分别都在train_args文件夹下
 
 #### Step2 配置train_args文件夹下对应文件
-相关训练参数在train_args文件夹下对应的文件中。一般就是用```base.py```即可
-均是采用dataclass格式配置参数，直接在default中修改即可，即不需要直接命令行传输参数了(如果有小伙伴需要这种方式也可以补上)。
+相关训练参数在train_args文件夹下对应的文件中，分为SFT和DPO。
+均是采用dataclass格式配置参数，直接在default中修改即可。
 
 #### Step3 开始训练
 

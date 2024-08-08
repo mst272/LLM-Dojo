@@ -26,6 +26,11 @@ DPO训练方式均支持框架中的deepspeed或者python启动模式，相应�
 
 
 ## DPO quick start
+
+**1、支持命令行传参启动，启动示例可见```LLM-Dojo/run_example.sh```**
+
+**2、也支持参数文件直接修改默认值，具体如下：**
+
 ### Step1 配置args.py
 常规的参数在utils下的args.py，基本默认设置即可，你只需要改一下模型路径、输出路径、task_type、template_name、train_data_path、train_args_path、train_mode等。
 
@@ -37,7 +42,7 @@ DPO训练方式均支持框架中的deepspeed或者python启动模式，相应�
 ### Step2 配置train_args文件夹下对应文件
 相关训练参数在train_args文件夹下对应的文件中。一般就是用```dpo/dpo_config.py```即可
 
-均是采用dataclass格式配置参数，直接在default中修改即可，即不需要直接命令行传输参数了(如果有小伙伴需要这种方式也可以补上)。
+均是采用dataclass格式配置参数，直接在default中修改即可，即不需要直接命令行传输参数了。
 
 在这里修改max_len和max_prompt_length参数，其他需要设置的是是否选择deepspeed模式训练等参数
 
