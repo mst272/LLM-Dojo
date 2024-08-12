@@ -51,7 +51,7 @@ class TrainArgument(DPOConfig):
     fp16: bool = field(default=False, metadata={"help": "Whether to use fp16 (mixed) precision instead of 32-bit"})
 
     # Deepspeed训练相关参数，不使用时设置为default=None
-    deepspeed: Optional[str] = field(default='./train_args/deepspeed_config/ds_config_zero2.json',
+    deepspeed: Optional[str] = field(default=None,
                                      metadata={"help": "启用Deepspeed时需要的config文件"})
     # ---------------------------------------------------------------------------------------------------------------------
     # 上面参数是常规TrainingArguments设置，下面参数则是dpo配置参数。下面为DPOConfig默认配置。
