@@ -18,10 +18,7 @@ from trl import DPOTrainer
 
 def initial_args():
     parser = HfArgumentParser((CommonArgs,))
-    # args = parser.parse_args_into_dataclasses()[0]
     args, remaining_args = parser.parse_args_into_dataclasses(return_remaining_strings=True)
-    # 根据CommonArgs中的config_option动态加载配置
-    # train_args = load_config(args.train_args_path)
     if args.train_args_path == "sft_args":
         parser_b = HfArgumentParser((sft_TrainArgument,))
         train_args, = parser_b.parse_args_into_dataclasses(args=remaining_args)
@@ -166,9 +163,6 @@ def load_sft_dataset(args, tokenizer):
 
 
 def load_dpo_dataset(args, tokenizer):
-    if args.template_name not in template_dict.keys():
-        raise Exception(f"template_name doesn't exist, all template_name: {template_dict.keys()}")
-    template = template_dict[args.template_name]
     # 官方dpo方法，一般情况下推荐使用这个，而且按照数据格式进行处理，多轮也可改为单轮。
     if args.task_type == 'dpo_multi':
         if tokenizer.chat_template is None:
@@ -185,6 +179,7 @@ def load_dpo_dataset(args, tokenizer):
         return train_dataset
     # 使用自己构建的dpo dataset，用于自己科研或魔改使用。
     elif args.task_type == 'dpo_single':
+        template = template_dict['qwen']
         train_dataset = DpoDataset(args.train_data_path, tokenizer, args.max_len, args.max_prompt_length, template)
         return train_dataset
 
