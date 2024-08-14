@@ -65,3 +65,5 @@ class CPOConfig(CPOConfig):
         "help": "Remove columns not required by the model when using an nlp.Dataset."})
     bf16: bool = field(default=True, metadata={"help": "是否使用bf16精度"})
     fp16: bool = field(default=False, metadata={"help": "是否使用bf16精度"})
+    eval_samples: int = 30
+    """eval sample的数量，注意不能少于batchsize*gradient_accumulation_steps"""

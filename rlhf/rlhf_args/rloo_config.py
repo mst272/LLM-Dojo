@@ -7,12 +7,6 @@ from trl.trainer.rloo_trainer import RLOOConfig
 # 支持直接通过total_episodes确定训练步数，也支持通过在TrainingArguments中配置num_train_epochs确定训练步数。
 @dataclass
 class RLOOConfig(RLOOConfig):
-    # common config
-    exp_name: str = os.path.basename(__file__)[: -len(".py")]
-    """the name of this experiment"""
-    run_name: Optional[str] = None
-    """a unique name of this run"""
-
 
     # batch size related config
     num_mini_batches: int = 1
@@ -87,3 +81,5 @@ class RLOOConfig(RLOOConfig):
         "help": "Remove columns not required by the model when using an nlp.Dataset."})
     bf16: bool = field(default=True, metadata={"help": "是否使用bf16精度"})
     fp16: bool = field(default=False, metadata={"help": "是否使用bf16精度"})
+    eval_samples: int = 30
+    """eval sample的数量，注意不能少于batchsize*gradient_accumulation_steps"""

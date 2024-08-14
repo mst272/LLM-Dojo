@@ -14,3 +14,5 @@ class SimPOConfig(CPOConfig):
     """A hyperparameter that controls the strength of the BC regularizer in CPO training."""
     simpo_gamma: float = 0.5
     """A target reward margin for the SimPO loss, used only when the "simpo" option is enabled."""
+    eval_samples: int = 30
+    """eval sample的数量，注意不能少于batchsize*gradient_accumulation_steps"""

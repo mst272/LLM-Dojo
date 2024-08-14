@@ -5,16 +5,9 @@ from transformers import SchedulerType, IntervalStrategy
 from transformers.training_args import OptimizerNames
 from trl.trainer.ppov2_trainer import PPOv2Config
 
+
 @dataclass
 class PPOConfig(PPOv2Config):
-    # common config
-    exp_name: str = os.path.basename(__file__)[: -len(".py")]
-    """the name of this experiment"""
-    run_name: Optional[str] = None
-    """a unique name of this run"""
-    sanity_check: bool = False
-    """wether to run in debug mode"""
-
     # batch size related config
     num_mini_batches: int = 1
     """Number of minibatches to split a batch into"""
@@ -87,9 +80,5 @@ class PPOConfig(PPOv2Config):
     remove_unused_columns: Optional[bool] = field(default=False, metadata={
         "help": "Remove columns not required by the model when using an nlp.Dataset."})
     bf16: bool = field(default=True, metadata={"help": "是否使用bf16精度"})
-
-    # Deepspeed训练相关参数，不使用时设置为default=None
-    deepspeed: Optional[str] = field(default=None, metadata={"help": "启用Deepspeed时需要的config文件"})
-
-    world_size: Optional[int] = 1
-    """The number of processes (GPUs) to use"""
+    eval_samples: int = 30
+    """eval sample的数量，注意不能少于batchsize*gradient_accumulation_steps"""
