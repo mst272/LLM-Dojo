@@ -5,6 +5,7 @@ MODEL_PATH=""
 
 # deepspeed 启动
 deepspeed --include localhost:0,1 main_train.py\
+    --train_args_path "sft_args" \
     --train_data_path "$DATA_PATH" \
     --model_name_or_path "$MODEL_PATH" \
     --max_len 1024 \
@@ -29,6 +30,7 @@ deepspeed --include localhost:0,1 main_train.py\
 
 # task_type:[pretrain, sft, dpo_multi, dpo_single]
 # train_mode:[qlora, lora, full]
+# train_args_path: [sft_args,dpo_args]
 
 
 
