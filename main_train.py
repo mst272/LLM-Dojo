@@ -170,8 +170,9 @@ def load_dpo_dataset(args, tokenizer):
         train_dataset = load_dataset(data_files=args.train_data_path, path='json')
 
         def process(row):
-            row["chosen"] = tokenizer.apply_chat_template(row["chosen"], tokenize=False)
-            row["rejected"] = tokenizer.apply_chat_template(row["rejected"], tokenize=False)
+            row["prompt"] = tokenizer.apply_chat_template(row["chosen"][:-1], tokenize=False)
+            row["chosen"] = tokenizer.apply_chat_template(row["chosen"][-1], tokenize=False)
+            row["rejected"] = tokenizer.apply_chat_template(row["rejected"][-1], tokenize=False)
             return row
 
         train_dataset = train_dataset.map(process)

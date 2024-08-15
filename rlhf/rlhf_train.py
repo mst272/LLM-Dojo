@@ -16,7 +16,6 @@ import torch.nn as nn
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 from common_args import CommonArgs
 
-
 def load_config(args):
     # 根据config_option加载相应的配置
     module_path = args.train_args_path.replace("/", ".").rstrip(".py")
@@ -150,19 +149,6 @@ def main():
     elif args.train_mode == 'qlora':
         policy = prepare_model_for_kbit_training(policy, use_gradient_checkpointing=config.gradient_checkpointing)
         policy = get_peft_model(policy, lora_config)
-
-    ################
-    # Dataset
-    ################
-    # raw_datasets = pd.read_json(config.train_data_path, lines=True)
-    # for i in range(len(raw_datasets)):
-    #     pro = raw_datasets['prompt'][i]
-    #     res = tokenizer.apply_chat_template(pro, tokenize=False)
-    #     raw_datasets.loc[i, 'prompt'] = res
-    # raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
-    # eval_samples = config.eval_samples
-    # train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-    # eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
 
     ################
     # Training

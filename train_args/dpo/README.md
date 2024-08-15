@@ -7,7 +7,9 @@ DPO训练方式均支持框架中的deepspeed或者python启动模式，相应�
 
 后者是自己从零构建的数据组织形式，理论上按照DPOTrainer相同形式，只实现了单轮。这样的**目的是为了更好地理解DPO的过程以及方便一些魔改操作**，权当学习使用。
 
-对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据。
+🤓**注意：** 对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据。数据是huggingface的hh-rlhf-helpful-base-trl-style格式数据，其中prompt是一句话，而chosen和
+rejected则是包含prompt的完整对话。故如构建自己的数据集时，无论多轮和单轮，都应在chosen和rejected中加入prompt，单轮相当于取第一句当prompt，
+多轮相当于取最后一句之前的所有当prompt(其实还可以取每一轮的user当prompt，后面有时间可能会实现)。
 
 对于自己构建的single_dpo数据格式，示例为：
 ```json lines
