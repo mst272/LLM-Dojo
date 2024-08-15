@@ -58,10 +58,12 @@ def main():
     ################
     raw_datasets = pd.read_json(config.train_data_path, lines=True)
     for i in range(len(raw_datasets)):
+        prompt = raw_datasets['prompt'][i]
         chosen = raw_datasets['chosen'][i]
         rejected = raw_datasets['rejected'][i]
-        raw_datasets.loc[i, 'chosen'] = tokenizer.apply_chat_template(chosen, tokenize=False)
-        raw_datasets.loc[i, 'rejected'] = tokenizer.apply_chat_template(rejected, tokenize=False)
+        raw_datasets.loc[i, 'prompt'] = tokenizer.apply_chat_template(prompt, tokenize=False)
+        raw_datasets.loc[i, 'chosen'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(chosen, tokenize=False)
+        raw_datasets.loc[i, 'rejected'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(rejected, tokenize=False)
     raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
     # 设置训练与测试集
     datasets = raw_datasets.train_test_split(test_size=0.1)

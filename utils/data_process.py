@@ -30,7 +30,7 @@ class MultiRoundDataProcess(Dataset):
             target_mask = [0] * len(input_ids)
 
         message = data['message']
-        # 拼接多轮对话
+        # 拼接多轮对话 todo:优化apply，有小问题，同rlhf问题
         for i, conv in enumerate(message):
             if conv['role'] == 'user':
                 user_text = self.tokenizer.apply_chat_template([conv], tokenize=False, add_generation_prompt=False,

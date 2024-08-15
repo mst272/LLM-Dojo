@@ -21,29 +21,41 @@
 ## 目前支持的强化学习方法
 支持RLHF的Lora、Dora、Qlora、全量参数训练。
 
+支持单轮形式和多轮形式。不过实践来看主要的训练方式即为单轮。
+
 - ✅ Reward模型的训练
 - ✅ RLOO
 - ✅ PPO
+
+不需要训练reward：
 - ✅ SimPO
 - ✅ CPO
 - ✅ CPO-SimPO
+- ✅ DPO：详情见 [DPO](../train_args/dpo/README.md)，历史原因还没来得及合并到此目录下。
 
 
 
 ## Quick Star
 
+对于PPO和RLOO，需要训练reward模型。
+
+对于其余方法，则不需要训练reward模型。
+
 ### 数据格式要求
 
-数据格式要求有如下三个字段:
+数据格式一般要求有如下三个字段:
 - prompt
 - chosen
 - rejected
 
-reward阶段需要chosen和rejected， RL阶段只需要prompt字段。
 
-huggingface上也有很多数据集，例如：```trl-internal-testing/hh-rlhf-helpful-base-trl-style```，因为我们要构建模型的的chat template，故数据格式稍有不同，prompt中必须包含```role```和```content```字段。
+huggingface上也有很多数据集，例如：```trl-internal-testing/hh-rlhf-helpful-base-trl-style```，但其chosen和rejected中包含了prompt，并不严格符合数据格式。
 
-数据格式为jsonl，具体可见示例数据：```rlhf/data_example/data.jsonl```
+因为我们要构建模型的的chat template，故数据格式稍有不同，prompt中必须包含```role```和```content```字段。且在chosen和rejected中分离了prompt。
+
+本框架采用的数据格式为jsonl，具体可见示例数据：```rlhf/data_example/data.jsonl```。三个字段prompt、chosen 、rejected彼此分离，训练时再进行组合。
+
+此数据集可用于上述所有训练使用。且示例数据只是单轮，如若需要构建多轮，可以将多轮对话写在prompt中，最终的assistant回答分别写在chosen和rejected中(针对多轮其实还可以取每一轮的user当prompt，后面有时间可能会实现)。
 
 
 ### Step1 训练Reward Model

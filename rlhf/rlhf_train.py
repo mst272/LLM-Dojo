@@ -16,6 +16,7 @@ import torch.nn as nn
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 from common_args import CommonArgs
 
+
 def load_config(args):
     # 根据config_option加载相应的配置
     module_path = args.train_args_path.replace("/", ".").rstrip(".py")
@@ -79,12 +80,25 @@ def load_data_prompt(tokenizer, train_data_path, eval_samples):
     return train_dataset, eval_dataset
 
 
+def judge_chat_template():
+    pass
+
+
+def test_tokenizer_chat_template(tokenizer, data):
+    bos = tokenizer.bos_token
+    eos = tokenizer.eos_token
+    test_prompt = tokenizer.apply_chat_template(data['prompt'][0], tokenize=False)
+    pass
+
+
 def load_data_all(tokenizer, train_data_path, eval_samples):
     raw_datasets = pd.read_json(train_data_path, lines=True)
     for i in range(len(raw_datasets)):
         raw_datasets.loc[i, 'prompt'] = tokenizer.apply_chat_template(raw_datasets['prompt'][i], tokenize=False)
-        raw_datasets.loc[i, 'chosen'] = tokenizer.apply_chat_template(raw_datasets['chosen'][i], tokenize=False)
-        raw_datasets.loc[i, 'rejected'] = tokenizer.apply_chat_template(raw_datasets['rejected'][i], tokenize=False)
+        raw_datasets.loc[i, 'chosen'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
+            raw_datasets['chosen'][i], tokenize=False)
+        raw_datasets.loc[i, 'rejected'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
+            raw_datasets['rejected'][i], tokenize=False)
     raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
