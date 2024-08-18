@@ -1,4 +1,7 @@
+import copy
 import json
+from typing import List, Dict
+
 from torch.utils.data import Dataset
 from loguru import logger
 
@@ -15,6 +18,26 @@ class MultiRoundDataProcess(Dataset):
 
     def __len__(self):
         return len(self.data_list)
+
+    def __getitem__1(self, item):
+        data = self.data_list[item]
+        data = json.loads(data)
+        input_ids, target_mask = [], []
+        message = data['message']
+        text = self.tokenizer.apply_chat_template(message, tokenize=False)
+        start_position = 0
+        for i, conv in enumerate(message):
+            if conv['role'] == 'assistant':
+                position = text[start_position:].find(conv('content'))
+                start_position += position
+                fixed_prompt = text[start_position:position]
+                fixed_output = text[position:position + len(conv('content'))]
+                input_tokens = self.tokenizer.encode(fixed_prompt, add_special_tokens=False)
+                output_tokens = self.tokenizer.encode(fixed_output, add_special_tokens=False)
+                input_ids += input_tokens
+                target_mask += [0] * len(input_tokens)
+                input_ids += output_tokens
+                target_mask += [1] * len(output_tokens)
 
     def __getitem__(self, item):
         # 开始拼接每条数据
