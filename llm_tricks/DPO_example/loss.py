@@ -40,6 +40,33 @@ class DPOLoss(nn.Module):
         return loss.mean(), chosen_rewards.mean(), rejected_rewards.mean()
 
 
+class SimPo(nn.Module):
+    """
+    SimPO Loss
+    """
+
+    def __init__(self, beta: float = 0.1, gamma: float = 0.5) -> None:
+        super().__init__()
+        self.beta = beta
+        self.gamma = gamma
+
+    def forward(
+            self,
+            policy_chosen_logps: torch.Tensor,
+            policy_rejected_logps: torch.Tensor,
+    ):
+        """
+        policy_chosen_logps: 模型输出的对数概率。Shape: (batch_size,)
+        policy_rejected_logps:   Shape: (batch_size,)
+        """
+        logits = policy_chosen_logps - policy_rejected_logps
+        logits = logits - self.gamma
+        loss = -F.logsigmoid(self.beta * logits)
+
+        # 对每个batch进行平均(期望)
+        return loss.mean()
+
+
 # 计算每个模型的Log probabilities
 def compute_logprobs(logits, labels, mask=None):
     """
@@ -101,7 +128,8 @@ def compute_logprobs_f_cross(logits, labels, mask=None):
 
 def compute_batch_loss(batch, policy_model, reference_model, beta):
     # 决定使用哪个loss
-    loss_fn = DPOLoss(beta)
+    # loss_fn = SimPo(beta, 0.5)   SimPO loss
+    loss_fn = DPOLoss(beta)   # DPO loss
 
     policy_chosen_logps = compute_logprobs(
         logits=policy_model(batch["chosen"]).logits,
@@ -129,6 +157,12 @@ def compute_batch_loss(batch, policy_model, reference_model, beta):
         reference_chosen_logps=reference_chosen_logps,
         reference_rejected_logps=reference_rejected_logps,
     )
+    # SimPO使用如下
+    # loss = loss_fn(
+    #     policy_chosen_logps=policy_chosen_logps,
+    #     policy_rejected_logps=policy_rejected_logps,
+    # )
+    # return loss
     return loss, chosen_rewards, rejected_rewards
 
 
@@ -157,6 +191,7 @@ def compute_loss_dataloader(data_loader, policy_model, reference_model, beta, nu
 
 
 if __name__ == "__main__":
+    # 测试compute_logprobs_f_cross 与 compute_logprobs
     logits = torch.tensor(
         [[2.0, 1.0, 0.1, 0.4],
          [0.5, 2.5, 0.3, 0.5],

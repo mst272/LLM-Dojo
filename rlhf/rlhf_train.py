@@ -16,6 +16,7 @@ import torch.nn as nn
 from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 from common_args import CommonArgs
 from loguru import logger
+from utils.utils import is_right_apply_chat, fix_chat_template_if_needed
 
 
 def load_config(args):

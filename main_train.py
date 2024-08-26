@@ -14,6 +14,7 @@ from utils.data_collator import SftDataCollator
 from utils.args import CommonArgs
 from datasets import load_dataset
 from trl import DPOTrainer
+from rlhf.utils.utils import is_right_apply_chat, fix_chat_template_if_needed
 
 
 def initial_args():

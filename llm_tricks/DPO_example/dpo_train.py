@@ -31,7 +31,7 @@ train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 IGNORE_INDEX = False
 
 
-def data_collector(batch, pad_token_id, device, max_length=None, if_mask_prompt=True):
+def data_collate(batch, pad_token_id, device, max_length=None, if_mask_prompt=True):
     batch_data = {
         "prompt": [],
         "chosen": [],
@@ -75,7 +75,7 @@ def data_collector(batch, pad_token_id, device, max_length=None, if_mask_prompt=
 
 
 customized_collate_fn = partial(
-    data_collector,
+    data_collate,
     pad_token_id=tokenizer.pad_token_id,
     device=device,
     if_mask_prompt=True,
@@ -98,8 +98,9 @@ val_loader = DataLoader(
     drop_last=False
 )
 
-# 3、开始计算DPO(或其他)的损失函数
 
+# 3、开始计算DPO(或其他)的损失函数
+# 相关代码可以再loss里查看，就不写在主函数里了。
 
 # 4、编写训练函数
 def train_model(
