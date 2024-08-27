@@ -26,10 +26,11 @@ Tips: 图片完全由AI生成
 - [致谢](#-致谢)
 
 ## 📖 Latest News
-- [2024-08-08] 🤓支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
-- [2024-08-04] 🤓支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
-- [2024-07-19] 🤓RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
-- [2024-07-16] 🤓RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
+- [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
+- [2024-08-08] 支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
+- [2024-08-04] 支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
+- [2024-07-19] RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
+- [2024-07-16] RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
 - [2024-06-9] 🚀支持DPO训练，分为单轮对话DPO(自己构建，方便魔改)和多轮对话DPO(简洁实现)，支持deepspeed的lora和qlora，具体介绍可见 [DPO使用说明](./train_args/dpo/README.md)
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
 <details> <summary>More news...</summary>
