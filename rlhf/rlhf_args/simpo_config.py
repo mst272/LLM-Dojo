@@ -16,3 +16,5 @@ class SimPOConfig(CPOConfig):
     """A target reward margin for the SimPO loss, used only when the "simpo" option is enabled."""
     eval_samples: int = 30
     """eval sample的数量，注意不能少于batchsize*gradient_accumulation_steps"""
+    sft_model_path: str = "./"
+    """the path to the sft model"""

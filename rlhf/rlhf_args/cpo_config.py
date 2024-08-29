@@ -36,11 +36,11 @@ class CPOConfig(CPOConfig):
     """Whether to sample and log generations during evaluation step."""
     is_encoder_decoder: Optional[bool] = None
     """If no model is provided, we need to know if the model_init returns an encoder-decoder."""
-    model_init_kwargs: Optional[Dict] = None
-    """Dict of Optional kwargs to pass when instantiating the model from a string"""
+    sft_model_path: str = "./"
+    """the path to the sft model"""
 
-    dataset_num_proc: Optional[int] = None
-    """The number of workers to use to tokenize the data. Defaults to None."""
+
+
 
     # TrainingArguments的相关参数
     train_data_path: Optional[str] = field(default='./', metadata={"help": "训练集路径"})
