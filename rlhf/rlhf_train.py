@@ -158,13 +158,13 @@ def main():
             llm_int8_has_fp16_weight=False,
         )
         model_kwargs.update(quantization_config=quantization_config)
-
-    # 如果模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射
-    try:
-        reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
-                                                                          **model_kwargs)
-    except Exception as e:
-        assert False, "模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射"
+    if args.rlhf_type in ['PPO', 'RLOO']:
+        # 如果模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射
+        try:
+            reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
+                                                                              **model_kwargs)
+        except Exception as e:
+            assert False, "模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射"
 
     ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
     policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
