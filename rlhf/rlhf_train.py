@@ -229,7 +229,6 @@ def main():
         raise Exception
     trainer.train()
     trainer.save_model(config.output_dir)
-    # trainer.generate_completions()
 
 
 if __name__ == "__main__":

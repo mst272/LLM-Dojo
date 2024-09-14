@@ -13,7 +13,6 @@ class TrainArgPath(Enum):
     SFT_LORA_QLORA_BASE = 'sft_args'
     DPO_LORA_QLORA_BASE = 'dpo_args'
 
-
 @dataclass
 class CommonArgs:
     """
