@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+torch_dtype = ['bf16', 'fp16']
+
 
 @dataclass
 class EvaluateArgs:
@@ -8,7 +10,11 @@ class EvaluateArgs:
     配置Evaluate的参数
     """
     max_new_tokens: int = 100
-    max_length: int = 256
+    torch_dtype: str = 'fp16'
     do_sample: bool = False
     top_p: float = 0.95
+    temperature: int = 1
     model_name_or_path: str = './'
+    output_path: str = './'
+    temp_dir: str = 'tmp'
+    data_file: str = ''

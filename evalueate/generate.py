@@ -28,3 +28,4 @@ def estimate_pass_at_k(
         num_samples_it = iter(num_samples)
 
     return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
+

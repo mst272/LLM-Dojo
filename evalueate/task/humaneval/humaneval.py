@@ -1,5 +1,13 @@
+import json
+
+import torch
+from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
+from evalueate.utils import language_settings, extract_generation_code
+from evalueate.evaluation import evaluate_functional_correctness
+
+
 def build_instruction(languge: str, question: str):
     return '''
 Please continue to complete the function. You are not allowed to modify the given code and do the completion only. Please return all completed function in a codeblock. Here is the given code to do completion:
@@ -9,23 +17,24 @@ Please continue to complete the function. You are not allowed to modify the give
 '''.strip().format(languge.lower(), question.strip())
 
 
-def generate_one(example, lang, tokenizer, model):
-    prompt = build_instruction(languge_settings[lang]['full_name'], example['prompt'])
+def generate_one(example, lang, tokenizer, model, args):
+    prompt = build_instruction(language_settings[lang]['full_name'], example['prompt'])
+    # 适配模型Chat Template
     inputs = tokenizer.apply_chat_template(
         [{'role': 'user', 'content': prompt}],
         return_tensors="pt",
         add_generation_prompt=True
     ).to(model.device)
 
-    stop_id = tokenizer.convert_tokens_to_ids("<|EOT|>")
+    stop_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else tokenizer.convert_tokens_to_ids("<|EOT|>")
     assert isinstance(stop_id, int), "Invalid tokenizer, EOT id not found"
 
     outputs = model.generate(
         inputs,
-        max_new_tokens=1024,
-        do_sample=False,
-        # top_p=0.95,
-        # temperature=temperature,
+        max_new_tokens=args.max_new_tokens,
+        do_sample=args.do_sample,
+        top_p=args.top_p,
+        temperature=args.temperature,
         pad_token_id=stop_id,
         eos_token_id=stop_id
     )
@@ -37,29 +46,28 @@ def generate_one(example, lang, tokenizer, model):
 
 
 def generate_main(args):
-    model_name_or_path = args.model
-    lang = args.language
+    model_name_or_path = args.model_name_or_path
     saved_path = args.output_path
     temp_dir = args.temp_dir
     os.makedirs(temp_dir, exist_ok=True)
-    problem_file = os.path.join(data_abs_dir, f"humaneval-{lang}.jsonl")
 
     print("model", model_name_or_path)
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     print("load tokenizer {} from {} over.".format(tokenizer.__class__, model_name_or_path))
+    torch_dtype = torch.bfloat16 if args.torch_dtype == 'bf16' else torch.float16
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch_dtype,
         device_map="auto",
-        # use_flash_attention_2=True
+        trust_remote_code=True,
     )
     model.eval()
-    examples = [json.loads(x) for x in open(problem_file) if x.strip()]
+    examples = [json.loads(x) for x in open(args.data_file) if x.strip()]
     print("Read {} examples for evaluation over.".format(len(examples)))
 
     generated_examples = []
     for ex in tqdm(examples, desc='Generating'):
-        gen_example = generate_one(ex, args.language, tokenizer, model)
+        gen_example = generate_one(ex, args.language, tokenizer, model, args)
         generated_examples.append(gen_example)
 
     print("Generate all over!!!")
