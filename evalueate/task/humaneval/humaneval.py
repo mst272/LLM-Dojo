@@ -2,10 +2,11 @@ import json
 
 import torch
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, HfArgumentParser
 import os
 from evalueate.utils import language_settings, extract_generation_code
 from evalueate.evaluation import evaluate_functional_correctness
+from evalueate.args import EvaluateArgs
 
 
 def build_instruction(languge: str, question: str):
@@ -26,7 +27,8 @@ def generate_one(example, lang, tokenizer, model, args):
         add_generation_prompt=True
     ).to(model.device)
 
-    stop_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else tokenizer.convert_tokens_to_ids("<|EOT|>")
+    stop_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else tokenizer.convert_tokens_to_ids(
+        "<|EOT|>")
     assert isinstance(stop_id, int), "Invalid tokenizer, EOT id not found"
 
     outputs = model.generate(
@@ -78,11 +80,18 @@ def generate_main(args):
 
     result = evaluate_functional_correctness(
         input_file=saved_path,
-        tmp_dir=temp_dir,
         n_workers=8,
         timeout=3.0,
-        problem_file=problem_file,
-        language=lang
+        k=1
     )
-    print(lang, result, model_name_or_path)
+    print(result, model_name_or_path)
+
+
+def evaluate_only(args):
     pass
+
+
+if __name__ == '__main__':
+    parser = HfArgumentParser((EvaluateArgs,))
+    args = parser.parse_args_into_dataclasses()[0]
+    generate_main(args)

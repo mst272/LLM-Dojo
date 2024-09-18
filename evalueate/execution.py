@@ -56,14 +56,7 @@ class redirect_stdin(contextlib._RedirectStream):  # type: ignore
     _stream = "stdin"
 
 
-def check_correctness(check_program, timeout=3):
-    """
-    Evaluates the functional correctness of a completion by running the test
-    suite provided in the problem.
-
-    :param completion_id: an optional completion ID so we can match
-        the results later even if execution finishes asynchronously.
-    """
+def check_correctness(check_program, task_id, timeout=3):
     manager = multiprocessing.Manager()
     result = manager.list()
 
@@ -76,7 +69,11 @@ def check_correctness(check_program, timeout=3):
     if not result:
         result.append("timed out")
 
-    return result[0] == "passed"
+    return {
+        "task_id": task_id,
+        "passed": result[0] == "passed",
+        "result": result[0]
+            }
 
 
 def unsafe_execute(check_program, result, timeout):
