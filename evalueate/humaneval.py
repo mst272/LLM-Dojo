@@ -4,9 +4,9 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM, HfArgumentParser
 import os
-from evalueate.utils import language_settings, extract_generation_code
-from evalueate.evaluation import evaluate_functional_correctness
-from evalueate.args import EvaluateArgs
+from utils import language_settings, extract_generation_code
+from evaluation import evaluate_functional_correctness
+from args import EvaluateArgs
 
 
 def build_instruction(languge: str, question: str):
