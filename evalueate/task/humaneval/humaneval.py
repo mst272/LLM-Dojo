@@ -50,8 +50,6 @@ def generate_one(example, lang, tokenizer, model, args):
 def generate_main(args):
     model_name_or_path = args.model_name_or_path
     saved_path = args.output_path
-    temp_dir = args.temp_dir
-    os.makedirs(temp_dir, exist_ok=True)
 
     print("model", model_name_or_path)
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
@@ -94,4 +92,5 @@ def evaluate_only(args):
 if __name__ == '__main__':
     parser = HfArgumentParser((EvaluateArgs,))
     args = parser.parse_args_into_dataclasses()[0]
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
     generate_main(args)
