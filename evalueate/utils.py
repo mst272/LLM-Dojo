@@ -34,3 +34,46 @@ language_settings = {
         'full_name': 'Java'
     }
 }
+
+
+class TaskUtils:
+    @staticmethod
+    def build_instruction(prompt: str):
+        """
+        根据模型构建合适的指令
+        """
+        return prompt
+
+    @staticmethod
+    def generation_process(code, test):
+        code_ = []
+        skip_rest = False  # 新增标志位，用于跳过if __name__ == "__main__"及其后面的内容
+        for line in code.split("\n"):
+            if skip_rest:
+                continue  # 如果遇到if __name__ == "__main__"，跳过该行及其后面的所有内容
+            if "if __name__ == \"__main__\":" in line:
+                skip_rest = True  # 设置标志位，表示需要跳过后续内容
+                continue
+            if "def " in line and line[0] != ' ' and line[0] != '\t':
+                code_.append("def " + line.split("def ")[1])
+                continue
+            if "class" in line and line.strip().endswith(":"):
+                code_.append(line)
+                continue
+            if len(line.strip()) > 0 and line[0] != ' ' and line[0] != '\t':
+                continue
+            code_.append(line)
+        code = "\n".join(code_)
+        test_setup = "\n".join(IMPORT_HELPER["python"]) + "\n"
+        return test_setup + code
+
+
+
+
+
+
+
+
+
+
+
