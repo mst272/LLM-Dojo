@@ -4,6 +4,7 @@ from typing import Optional
 torch_dtype = ['bf16', 'fp16']
 task_name = ['humaneval']
 
+
 @dataclass
 class EvaluateArgs:
     """
