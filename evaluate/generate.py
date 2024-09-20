@@ -58,19 +58,20 @@ def generate_main(args, task):
             fw.write(json.dumps(ex) + '\n')
         print("Save {} processed examples into {} over!".format(len(generated_examples), saved_path))
 
-    result = task.evaluate_function(saved_path)
+    result = task.evaluate_function(saved_path,args)
     save_metrics(args, result)
     print(result, model_name_or_path)
 
 
 def evaluation_only(args, task):
-    result = task.evaluate_function(args.evaluate_data_path)
+    result = task.evaluate_function(args.evaluate_data_path, args)
     save_metrics(args, result)
     print(result, args.model_name_or_path)
 
 
 def save_metrics(args, result):
+    args_dict = args.__dict__
     with open(args.save_metrics_path, 'w', encoding='utf-8') as fw:
         fw.write(json.dumps(result) + '\n')
-        fw.write(json.dumps(args) + '\n')
+        fw.write(json.dumps(args_dict) + '\n')
 

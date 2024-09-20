@@ -10,7 +10,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # 任务列表
 TASKS = {
-    "humaneval": humaneval.HumanEval
+    "humaneval": humaneval.HumanEval()
 }
 
 task = TASKS[args.task_name]

@@ -1,9 +1,12 @@
-from ..base_utils import TaskUtils
-from ..evaluation import evaluate_functional_correctness
+import sys
+sys.path.append('../')
+from base_utils import TaskUtils
+from evaluation import evaluate_functional_correctness
 
 
 class HumanEval(TaskUtils):
-    super().__init__()
+    def __init__(self):
+        super().__init__()
 
     @staticmethod
     def build_instruction(example):
@@ -23,7 +26,7 @@ class HumanEval(TaskUtils):
         for line in code.split("\n"):
             if skip_rest:
                 continue  # 如果遇到if __name__ == "__main__"，跳过该行及其后面的所有内容
-            if "if __name__ == \"__main__\":" in line:
+            if any(keyword in line for keyword in ["if __name__ == \"__main__\":", "if __name__ == \'__main__\':"]):
                 skip_rest = True  # 设置标志位，表示需要跳过后续内容
                 continue
             if "def " in line and line[0] != ' ' and line[0] != '\t':
@@ -45,5 +48,5 @@ class HumanEval(TaskUtils):
         """
         最终评测的方法，输入为保存的生成jsonl文件
         """
-        return evaluate_functional_correctness(input_file, n_workers=32, timeout=3.0, k=1, save_logs_path=args.save_logs_path)
+        return evaluate_functional_correctness(input_file, n_workers=1, timeout=3.0, k=1, save_logs_path=args.save_logs_path)
 
