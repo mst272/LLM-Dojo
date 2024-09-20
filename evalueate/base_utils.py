@@ -1,4 +1,3 @@
-
 class TaskUtils:
     def __init__(self):
         self.IMPORT_HELPER = {
@@ -31,13 +30,13 @@ class TaskUtils:
     @staticmethod
     def generation_code_process(example):
         """
-        对生成的代码提取函数部分 及 设置import等操作
+        对生成的代码提取函数部分 及 设置import、添加test用例等操作
         """
         pass
 
     @staticmethod
-    def return_test_code(sample):
+    def evaluate_function(input_file, args):
         """
-        返回最终进行运行测试code
+        最终评测的方法，输入为保存的生成jsonl文件
         """
         pass

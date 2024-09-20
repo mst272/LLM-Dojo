@@ -1,10 +1,8 @@
 import json
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 import numpy as np
 from tqdm import tqdm
-
 from execution import check_correctness
 
 
@@ -21,12 +19,13 @@ def stream_jsonl_all(filename: str):
     return results
 
 
+# 计算pass@1
 def evaluate_functional_correctness(
         input_file: str = None,
         n_workers: int = 32,
         timeout: float = 3.0,
         k: int = 1,
-        save_logs_path = './logs.jsonl'
+        save_logs_path='./logs.jsonl'
 ):
     """
     Evaluates the functional correctness of a model.
@@ -42,10 +41,9 @@ def evaluate_functional_correctness(
         print("Reading samples...")
         for sample in tqdm(sample_jsonl):
             task_id = sample["task_id"]
-            sample["test_code"] = process_humaneval_test(sample)
-            if sample["test_code"] is None:
+            if sample["generation"] is None:
                 continue
-            args = (sample['test_code'], task_id, timeout)
+            args = (sample['generation'], task_id, timeout)
             future = executor.submit(check_correctness, *args)
             futures.append(future)
             n_samples += 1
@@ -58,7 +56,7 @@ def evaluate_functional_correctness(
     total, correct, logs = [], [], []
     for result in results.values():
         passed = [r["passed"] for r in result]
-        res = [{r['task_id']:r["result"]} for r in result]
+        res = [{r['task_id']: r["result"]} for r in result]
         logs.append(res)
         total.append(len(passed))
         correct.append(sum(passed))
@@ -98,5 +96,3 @@ def estimate_pass_at_k(
     return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
 
 
-def evaluate_only(args):
-    pass

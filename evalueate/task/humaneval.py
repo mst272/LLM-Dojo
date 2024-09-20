@@ -1,4 +1,5 @@
 from ..base_utils import TaskUtils
+from ..evaluation import evaluate_functional_correctness
 
 
 class HumanEval(TaskUtils):
@@ -16,6 +17,7 @@ class HumanEval(TaskUtils):
         对生成的代码提取函数部分 及 设置import等操作
         """
         code = example['output']
+        test_case = example['test']
         code_ = []
         skip_rest = False  # 新增标志位，用于跳过if __name__ == "__main__"及其后面的内容
         for line in code.split("\n"):
@@ -35,15 +37,13 @@ class HumanEval(TaskUtils):
             code_.append(line)
         code = "\n".join(code_)
         test_setup = "\n".join(self.IMPORT_HELPER["python"]) + "\n"
-        example['generation'] = test_setup + code
-        return test_setup + code
+        example['generation'] = test_setup + code + "\n" + test_case + "\n"
+        return example
 
     @staticmethod
-    def return_test_code(sample):
+    def evaluate_function(input_file, args):
         """
-        返回最终进行运行测试code
+        最终评测的方法，输入为保存的生成jsonl文件
         """
-        test = sample["test"]
-        code = sample["generation"]
-        test_string = code + "\n" + test + "\n"
-        return test_string
+        return evaluate_functional_correctness(input_file, n_workers=32, timeout=3.0, k=1, save_logs_path=args.save_logs_path)
+

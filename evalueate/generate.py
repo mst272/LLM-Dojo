@@ -1,14 +1,12 @@
 import json
 import torch
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForCausalLM, HfArgumentParser
-from utils import language_settings, extract_generation_code
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from evaluation import evaluate_functional_correctness
-from args import EvaluateArgs
 
 
-def generate_one(example, prompt, tokenizer, model, args):
-
+def generate_one(example, tokenizer, model, args, task):
+    prompt = task.build_instruction(example)
     inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
 
     stop_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else tokenizer.convert_tokens_to_ids(
@@ -25,13 +23,13 @@ def generate_one(example, prompt, tokenizer, model, args):
         eos_token_id=stop_id
     )
 
-    output = tokenizer.decode(outputs[0][len(inputs[0]):], skip_special_tokens=True)
+    output = tokenizer.decode(outputs[0][:], skip_special_tokens=True)
     example['output'] = output
 
-    return extract_generation_code(example)
+    return task.generation_code_process(example)
 
 
-def generate_main(args):
+def generate_main(args, task):
     model_name_or_path = args.model_name_or_path
     saved_path = args.output_path
 
@@ -51,7 +49,7 @@ def generate_main(args):
 
     generated_examples = []
     for ex in tqdm(examples, desc='Generating'):
-        gen_example = generate_one(ex, args.language, tokenizer, model, args)
+        gen_example = generate_one(ex, tokenizer, model, args, task)
         generated_examples.append(gen_example)
 
     print("Generate all over!!!")
@@ -60,10 +58,19 @@ def generate_main(args):
             fw.write(json.dumps(ex) + '\n')
         print("Save {} processed examples into {} over!".format(len(generated_examples), saved_path))
 
-    result = evaluate_functional_correctness(
-        input_file=saved_path,
-        n_workers=8,
-        timeout=3.0,
-        k=1
-    )
+    result = task.evaluate_function(saved_path)
+    save_metrics(args, result)
     print(result, model_name_or_path)
+
+
+def evaluation_only(args, task):
+    result = task.evaluate_function(args.evaluate_data_path)
+    save_metrics(args, result)
+    print(result, args.model_name_or_path)
+
+
+def save_metrics(args, result):
+    with open(args.save_metrics_path, 'w', encoding='utf-8') as fw:
+        fw.write(json.dumps(result) + '\n')
+        fw.write(json.dumps(args) + '\n')
+

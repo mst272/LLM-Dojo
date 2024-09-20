@@ -20,4 +20,6 @@ class EvaluateArgs:
     temperature: int = 1
     model_name_or_path: str = './'
     output_path: str = './'
+    save_logs_path: str = './'
+    save_metrics_path: str = './'
     data_file: str = ''
