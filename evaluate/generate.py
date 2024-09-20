@@ -2,7 +2,6 @@ import json
 import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from evaluation import evaluate_functional_correctness
 
 
 def generate_one(example, tokenizer, model, args, task):
