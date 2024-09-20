@@ -36,7 +36,7 @@ def generate_main(args, task):
     print("model", model_name_or_path)
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     print("load tokenizer {} from {} over.".format(tokenizer.__class__, model_name_or_path))
-    torch_dtype = torch.bfloat16 if args.torch_dtype == 'bf16' else torch.float16
+    torch_dtype = torch.bfloat16 if args.torch_dtype == 'bf16' else torch.float16 if args.torch_dtype == 'fp16' else torch.float32
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
         torch_dtype=torch_dtype,

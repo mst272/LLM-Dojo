@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-torch_dtype = ['bf16', 'fp16']
+torch_dtype = ['bf16', 'fp16', 'fp32']
 task_name = ['humaneval']
 
 
