@@ -10,6 +10,7 @@ Tips: 图片完全由AI生成
 - **RLHF框架:** RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
 - **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
 - **主流模型chat template汇总:** 整合当前主流模型的chat template，以方便自己训练代码时数据处理及微调等操作，详情可见: [Chat Template](./chat_template/README.md)。
+- **模型评测框架:** 以代码模型的Humaneval评测为例，实现了一套简洁的模型评测框架，支持自行添加各种评测任务。
 
 ### 目录
 
