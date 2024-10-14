@@ -4,12 +4,11 @@
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
-不同于其他优秀的开源训练框架的高度封装与集成，LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习**，每个人都能以此项目为基础自己构建与理解，且与大多开源框架相同均是基于huggingface，性能并不会有太多出入。
+不同于其他优秀的开源训练框架的高度封装与集成，LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习且方便自己魔改与实验**，且与大多开源框架相同均是基于huggingface，性能并不会有太多出入。
 主要内容如下：
-- **开源大模型训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora(Dora)、QLora、全参等训练，细节代码主要集中在```utils```文件夹下，训练代码在```main_train.py```。
+- **大模型SFT训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora(Dora)、QLora、全参等训练，细节代码主要集中在```utils```文件夹下，训练代码在```main_train.py```。
 - **RLHF框架:** RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
 - **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
-- **主流模型chat template汇总:** 整合当前主流模型的chat template，以方便自己训练代码时数据处理及微调等操作，详情可见: [Chat Template](./chat_template/README.md)。
 
 ### 目录
 
@@ -19,23 +18,23 @@ Tips: 图片完全由AI生成
 - [项目规划及进展](#-项目规划及进展)
   - [已支持微调模型](#已支持微调模型)
   - [已更新tricks讲解](#已更新tricks讲解)
-  - [Chat Template汇总](#chat-template汇总)
   - [技术发文](#技术发文)
 - [训练数据格式说明](#训练数据格式说明)
 - [Quick Start](#quick-start)
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-10-14] 删除chat template模块，因为使用tokenizer的apply_chat_template即可
 - [2024-09-20] 增加evaluate模块，一个简洁的模型评测框架，目前仅支持Humaneval。可见[Evaluate](./evaluate/README.md)
 - [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
 - [2024-08-08] 支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
+<details> <summary>More news...</summary>
+
 - [2024-08-04] 支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
 - [2024-07-19] RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
 - [2024-07-16] RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
 - [2024-06-9] 🚀支持DPO训练，分为单轮对话DPO(自己构建，方便魔改)和多轮对话DPO(简洁实现)，支持deepspeed的lora和qlora，具体介绍可见 [DPO使用说明](./train_args/dpo/README.md)
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
-<details> <summary>More news...</summary>
-
 - [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
 - [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora、全量微调等训练！
 - [2024-05-13] 🚀 更新各大模型的Chat Template
@@ -66,14 +65,13 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 - [x] [baichuan系列](https://github.com/baichuan-inc/Baichuan2)
 - [x] [GLM系列](https://github.com/THUDM/GLM-4)
 - 待更新Mistral系列
+
 ### 已更新tricks讲解
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
 - [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
 - [从零实现MOE](./llm_tricks/moe/READEME.md)
 
-### Chat Template汇总
--  [Chat Template总结](./chat_template/README.md)
 
 ### 技术发文
 <details> <summary>More news...</summary>
@@ -168,7 +166,6 @@ deepspeed --include localhost:6,7 main_train.py
 目前区分single_dpo和multi_dpo模式，前者是自己实现dataset并映射，以供大家魔改使用。 
 后者采用官方示例，故建议使用后者。具体使用说明可见：[DPO使用说明](./train_args/dpo/README.md)
 
-### 推理(Infer)
 
 ## 🤝 致谢！
 项目学习了优秀开源项目，感谢huggingface、流萤等及一些国内外小伙伴的开源项目。

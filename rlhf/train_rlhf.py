@@ -13,7 +13,6 @@ from transformers import (
 import pandas as pd
 import torch
 import torch.nn as nn
-from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 from common_args import CommonArgs
 from loguru import logger
 from utils.utils import is_right_apply_chat, fix_chat_template_if_needed
@@ -139,8 +138,6 @@ def main():
         trust_remote_code=True,
     )
 
-    if tokenizer.chat_template is None:
-        tokenizer.chat_template = SIMPLE_QUERY_CHAT_TEMPLATE
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 

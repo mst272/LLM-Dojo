@@ -1,5 +1,5 @@
 accelerate
-transformers==4.44.2
+transformers>=4.44.2
 peft
 bitsandbytes
 loguru
