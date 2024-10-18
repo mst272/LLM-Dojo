@@ -3,7 +3,7 @@ transformers>=4.44.2
 peft
 bitsandbytes
 loguru
-numpy
+numpy==1.26.4
 pandas
 tqdm
 deepspeed==0.13.1
