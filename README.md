@@ -25,7 +25,7 @@ Tips: 图片完全由AI生成
 - [致谢](#-致谢)
 
 ## 📖 Latest News
-- [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏]()
+- [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏](./rlhf/README.md)
 - [2024-10-14] 删除chat template模块，因为使用tokenizer的apply_chat_template即可
 - [2024-09-20] 增加evaluate模块，一个简洁的模型评测框架，目前仅支持Humaneval。可见[Evaluate](./evaluate/README.md)
 - [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
