@@ -15,15 +15,17 @@ Tips: 图片完全由AI生成
 - [项目简介](#-项目简介)
 - [Latest News](#-latest-news)
 - [RLHF训练框架](#rlhf训练框架)
-- [项目规划及进展](#-项目规划及进展)
+- [SFT训练框架(包括DPO)](#sft训练框架)
   - [已支持微调模型](#已支持微调模型)
-  - [已更新tricks讲解](#已更新tricks讲解)
+  - [训练数据格式说明](#训练数据格式说明)
+  - [适配框架数据处理](#适配框架数据处理)
+  - [Quick Start](#quick-start)
+- [Tricks](#tricks)
   - [技术发文](#技术发文)
-- [训练数据格式说明](#训练数据格式说明)
-- [Quick Start](#quick-start)
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏]()
 - [2024-10-14] 删除chat template模块，因为使用tokenizer的apply_chat_template即可
 - [2024-09-20] 增加evaluate模块，一个简洁的模型评测框架，目前仅支持Humaneval。可见[Evaluate](./evaluate/README.md)
 - [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
@@ -47,7 +49,7 @@ Tips: 图片完全由AI生成
 RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行。
 详情可见: [RLHF](./rlhf/README.md)。
 
-## 📊 项目规划及进展
+## SFT训练框架
 
 ### 已支持微调模型
 理论上支持对所有模型的微调,下述仅为测试过。
@@ -64,25 +66,8 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 - [x] [哔哩哔哩 Index-1.9B](https://github.com/bilibili/Index-1.9B)
 - [x] [baichuan系列](https://github.com/baichuan-inc/Baichuan2)
 - [x] [GLM系列](https://github.com/THUDM/GLM-4)
-- 待更新Mistral系列
 
-### 已更新tricks讲解
- 所有相关的trciks及讲解都在llm_tricks文件夹下
-- [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
-- [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
-- [从零实现MOE](./llm_tricks/moe/READEME.md)
-
-
-### 技术发文
-<details> <summary>More news...</summary>
-
-- [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
-- [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
-- [一步一步实现Transformer代码](https://medium.com/@sdwzh2725/transformer-code-step-by-step-understandingtransformer-d2ea773f15fa)
-- [DPO训练QWEN2及魔改DPO实现](https://zhuanlan.zhihu.com/p/702569978)
-</details>
-
-## 😮训练数据格式说明
+### 😮训练数据格式说明
 本框架采用的SFT数据格式无论单轮对话或多轮对话均为***jsonl***形式。无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。
 
 单轮对话即message字段中只有一对user和assistant，多轮对话则有多对。
@@ -109,20 +94,20 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 ```
 运行后即可得到无system的user、assistant指定格式。
 
-## 🤓Quick Start
+### 🤓Quick Start
 包括SFT和DPO。
 
 目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**。
 
 所有方式均支持Qlora、Lora、Dora方法。
 
-### SFT微调(FineTune)
+#### SFT微调(FineTune)
 
 **1、支持命令行传参启动，启动示例可见```run_example.sh```**
 
 **2、也支持参数文件直接修改默认值，具体如下：**
 
-#### Step1 配置args.py
+##### Step1 配置args.py
 不同的微调方法有不同的配置，但大体都是类似的，基本默认设置即可，你只需要改一下模型路径、输出路径等等。
 
 常规的参数在utils下的args.py。
@@ -130,11 +115,11 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 其中:
 > train_args_path：为Step2中需要配置的参数，可选sft_args和dpo_args，分别都在train_args文件夹下
 
-#### Step2 配置train_args文件夹下对应文件
+##### Step2 配置train_args文件夹下对应文件
 相关训练参数在train_args文件夹下对应的文件中，分为SFT和DPO。
 均是采用dataclass格式配置参数，直接在default中修改即可。
 
-#### Step3 开始训练
+##### Step3 开始训练
 
 😶Python命令单卡启动：
 
@@ -162,9 +147,26 @@ deepspeed --include localhost:6,7 main_train.py
 | Lora+Zero2 | Qwen（7B） | 26g  |
 | Lora+zero3 | Qwen（7B） | 16g  |
 
-### DPO
+#### DPO
 目前区分single_dpo和multi_dpo模式，前者是自己实现dataset并映射，以供大家魔改使用。 
 后者采用官方示例，故建议使用后者。具体使用说明可见：[DPO使用说明](./train_args/dpo/README.md)
+
+## Tricks
+ 所有相关的trciks及讲解都在llm_tricks文件夹下
+- [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
+- [Lora+微调代码实例](https://github.com/mst272/simple-lora-plus)
+- [从零实现MOE](./llm_tricks/moe/READEME.md)
+- [从零实现DPO](./llm_tricks/DPO_example/README.md)
+- [从零实现Transformer](./llm_tricks/transformer/README.md)
+
+### 技术发文
+<details> <summary>More news...</summary>
+
+- [Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
+- [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
+- [一步一步实现Transformer代码](https://medium.com/@sdwzh2725/transformer-code-step-by-step-understandingtransformer-d2ea773f15fa)
+- [DPO训练QWEN2及魔改DPO实现](https://zhuanlan.zhihu.com/p/702569978)
+</details>
 
 
 ## 🤝 致谢！

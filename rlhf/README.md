@@ -6,11 +6,11 @@
 
 主要包括三类：
 
-1、RLHF
+**1、RLHF**
 
-2、Knowledge Distillation (知识蒸馏)
+**2、Knowledge Distillation (知识蒸馏)**
 
-3、Rejected Sampling (拒绝采样) ：待更新
+**3、Rejected Sampling (拒绝采样) ：待更新**
 
 ## 目录
 

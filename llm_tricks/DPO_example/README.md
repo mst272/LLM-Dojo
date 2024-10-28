@@ -8,6 +8,8 @@ python dpo_train.py
 ## 说明
 本文档下的从零实现只是一个学习的demo，用以理解原理所用，并没有增加分布式等。所以尽管使用2B的小模型，显存占用也高达30+GB。
 
+精度设置fp16可能会出现loss 为nan的现象
+
 ```dpo_train.py```为训练主路径， 相关loss计算在```loss.py```.
 
 如果想要使用DPO或者Simpo、CPO等强化学习方法真正训练的话，
