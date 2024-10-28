@@ -230,9 +230,9 @@ def main():
     # 开始训练
     logger.info("*** starting training ***")
     train_result = trainer.train()
-    # 保存最好的checkpoint
-    final_save_path = join(train_args.output_dir)
-    trainer.save_model(final_save_path)  # Saves the tokenizer too
+    # 保存checkpoint /Transformers 更新了自动保存最后训练结果
+    # final_save_path = join(train_args.output_dir)
+    # trainer.save_model(final_save_path)  # Saves the tokenizer too
     # 保存训练指标
     metrics = train_result.metrics
     trainer.log_metrics("train", metrics)

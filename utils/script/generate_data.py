@@ -1,6 +1,6 @@
 import pandas as pd
 
-ORIGINAL_DATA_PATH = './1.jsonl'  # 原数据路径
+ORIGINAL_DATA_PATH = '../../1.jsonl'  # 原数据路径
 OUT_DATA_PATH = './out_data.jsonl'  # 转换为框架适用的role content模式的输出路径
 
 

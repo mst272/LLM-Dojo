@@ -87,7 +87,7 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
 
 ### 适配框架数据处理
-鉴于框架指定格式数据可能会跟常规数据有些不同，故可以通过```generate_data.py```文件进行处理，输入应为正常的instruction和output的jsonl格式文件，
+鉴于框架指定格式数据可能会跟常规数据有些不同，故可以通过```utils/script/generate_data.py```文件进行处理，输入应为正常的instruction和output的jsonl格式文件，
 如下：
 ```json lines
 {"instruction":"将这个句子改写成将来时态：“太阳将会照耀明亮。”","output":"太阳将会散发温暖的光芒。"}

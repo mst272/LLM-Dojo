@@ -3,6 +3,10 @@ DATA_PATH=''
 OUTPUT_PATH=""
 MODEL_PATH=""
 
+# task_type:[pretrain, sft, dpo_multi, dpo_single]
+# train_mode:[qlora, lora, full]
+# train_args_path: [sft_args,dpo_args]
+
 # deepspeed 启动
 deepspeed --include localhost:0,1 main_train.py\
     --train_args_path "sft_args" \
@@ -28,9 +32,7 @@ deepspeed --include localhost:0,1 main_train.py\
     --deepspeed './train_args/deepspeed_config/ds_config_zero2.json' \
     --bf16 True
 
-# task_type:[pretrain, sft, dpo_multi, dpo_single]
-# train_mode:[qlora, lora, full]
-# train_args_path: [sft_args,dpo_args]
+
 
 
 
