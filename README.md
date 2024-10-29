@@ -68,7 +68,7 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 - [x] [GLM系列](https://github.com/THUDM/GLM-4)
 
 ### 😮训练数据格式说明
-本框架采用的SFT数据格式无论单轮对话或多轮对话均为***jsonl***形式。无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。
+本框架采用的SFT数据格式无论单轮对话或多轮对话均为**jsonl**形式。**无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。**
 
 单轮对话即message字段中只有一对user和assistant，多轮对话则有多对。
 
@@ -77,11 +77,9 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 {"message": [{"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"},{"role": "user", "content": "How many helicopters can a human eat in one sitting"},{"role": "assistant", "content": "Sure! Here are some ways to eat bananas and dragonfruits together"},{"role": "user", "content": "你好"},{"role": "assistant", "content": "hellow"}]}
 ```
 
+
 可根据需求自行决定是否增加system字段，例如不需要或修改system则只需将上述示例数据中的
-
-```{"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"}```
-
-删除或修改conten即可。**建议训练数据没有特殊需求不必增加system字段**
+删除或修改content即可。**建议训练数据没有特殊需求不必增加system字段**
 
 
 对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
@@ -97,9 +95,7 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 ### 🤓Quick Start
 包括SFT和DPO。
 
-目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**。
-
-所有方式均支持Qlora、Lora、Dora方法。
+目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**. 所有方式均支持Qlora、Lora、Dora方法。
 
 #### SFT微调(FineTune)
 
