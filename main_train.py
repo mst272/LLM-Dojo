@@ -164,8 +164,7 @@ def load_sft_dataset(args, tokenizer):
 
 
 def load_dpo_dataset(args, tokenizer):
-    # 官方dpo方法，一般情况下推荐使用这个，而且按照数据格式进行处理，多轮也可改为单轮。
-    if args.task_type == 'dpo_multi':
+    if args.task_type == 'dpo':
         if tokenizer.chat_template is None:
             tokenizer.chat_template = "{% for message in messages %}{{message['role'] + ': ' + message['content'] + '\n\n'}}{% endfor %}{{ eos_token }}"
         train_dataset = load_dataset(data_files=args.train_data_path, path='json')
@@ -180,10 +179,10 @@ def load_dpo_dataset(args, tokenizer):
         train_dataset = train_dataset['train']
         return train_dataset
     # 使用自己构建的dpo dataset，用于自己科研或魔改使用。
-    elif args.task_type == 'dpo_single':
-        template = template_dict['qwen']
-        train_dataset = DpoDataset(args.train_data_path, tokenizer, args.max_len, args.max_prompt_length, template)
-        return train_dataset
+    # elif args.task_type == 'dpo_single':
+    #     template = template_dict['qwen']
+    #     train_dataset = DpoDataset(args.train_data_path, tokenizer, args.max_len, args.max_prompt_length, template)
+    #     return train_dataset
 
 
 def create_trainer(args, train_args):

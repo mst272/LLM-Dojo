@@ -35,7 +35,7 @@ class CommonArgs:
                                                             "目前只支持linear and Conv2D layers."})
 
     task_type: str = field(default="sft",
-                           metadata={"help": "预训练任务：[pretrain, sft, dpo_multi, dpo_single]，目前支持sft,dpo"})
+                           metadata={"help": "预训练任务：[pretrain, sft, dpo]，目前支持sft,dpo"})
 
     # lora相关配置
     lora_rank: Optional[int] = field(default=64, metadata={"help": "lora rank"})
