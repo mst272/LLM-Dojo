@@ -1,12 +1,11 @@
 from dataclasses import dataclass, field
-from typing import Optional
 from trl import DPOConfig
 
 
 @dataclass
-class TrainArgument(DPOConfig):
+class DPOConfig(DPOConfig):
     """
-    训练参数, 可直接在此修改
+    训练参数, 可直接在此修改. 想看DPOConfig可直接在继承的类中去看
     """
     output_dir: str = field(default='', metadata={"help": "模型训练完成后的保存路径"})
     num_train_epochs: int = 1,
@@ -27,6 +26,3 @@ class TrainArgument(DPOConfig):
     remove_unused_columns: bool = False
     bf16: bool = True
     fp16: bool = False
-
-    # Deepspeed训练相关参数，不使用时设置为default=None
-    deepspeed: Optional[str] = field(default=None, metadata={"help": "启用Deepspeed时需要的config文件"})

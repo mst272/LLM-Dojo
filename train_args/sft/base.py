@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Optional
-from trl import DPOConfig
+from transformers import TrainingArguments
 
 
 @dataclass
-class TrainArgument(DPOConfig):
+class TrainArgument(TrainingArguments):
     """
-    训练参数, 可直接在此修改
+    训练参数, 直接在这里修改即可
     """
     output_dir: str = field(default='', metadata={"help": "模型训练完成后的保存路径"})
     num_train_epochs: int = 1,

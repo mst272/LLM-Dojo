@@ -4,7 +4,7 @@ from loguru import logger
 
 
 class MultiRoundDataProcess(Dataset):
-    def __init__(self, file, tokenizer, max_length):
+    def __init__(self, file, tokenizer, max_length, auto_adapt):
         self.tokenizer = tokenizer
         self.max_length = max_length
         logger.info(f'Loading data: {file}')
@@ -12,6 +12,7 @@ class MultiRoundDataProcess(Dataset):
             data_list = f.readlines()
         logger.info(f"There are {len(data_list)} data in dataset")
         self.data_list = data_list
+        self.auto_adapt = auto_adapt
 
     def __len__(self):
         return len(self.data_list)
@@ -22,8 +23,11 @@ class MultiRoundDataProcess(Dataset):
         data = json.loads(data)
         input_ids, target_mask = [], []
         message = data['message']
-
-        text = self.tokenizer.apply_chat_template(message, tokenize=False)
+        if self.auto_adapt:
+            text = self.tokenizer.apply_chat_template(message, tokenize=False)
+        else:
+            # 注意数据需要user assistant顺序排列
+            text = ''.join(conv['content'] for i, conv in enumerate(message))
         input_ids += self.tokenizer.encode(text, add_special_tokens=False)
         target_mask += [0] * len(input_ids)
         start_position = 0
@@ -34,7 +38,6 @@ class MultiRoundDataProcess(Dataset):
                 assistant_len = len(assistant_ids)
                 target_mask[start_position + position:start_position + position + assistant_len] = [1] * assistant_len
                 start_position += position + assistant_len
-
         # 判断一下输入和掩码长度是否相等
         assert len(input_ids) == len(target_mask)
         # 对长度进行截断

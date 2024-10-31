@@ -6,15 +6,12 @@ import torch.nn as nn
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Trainer, \
     BitsAndBytesConfig, HfArgumentParser, set_seed
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, cast_mixed_precision_params
-from train_args import dpo_TrainArgument, sft_TrainArgument
+from train_args import sft_TrainArgument
 import bitsandbytes as bnb
-from utils.template import template_dict
-from utils.data_process import MultiRoundDataProcess, DpoDataset
+from utils.data_process import MultiRoundDataProcess
 from utils.data_collator import SftDataCollator
-from utils.args import CommonArgs
+from train_args.common_args import CommonArgs
 from datasets import load_dataset
-from trl import DPOTrainer
-from rlhf.utils.utils import is_right_apply_chat, fix_chat_template_if_needed
 
 
 def initial_args():
@@ -24,10 +21,10 @@ def initial_args():
         parser_b = HfArgumentParser((sft_TrainArgument,))
         train_args, = parser_b.parse_args_into_dataclasses(args=remaining_args)
         print("Loaded instance sft_args")
-    elif args.train_args_path == "dpo_args":
-        parser_c = HfArgumentParser((dpo_TrainArgument,))
-        train_args, = parser_c.parse_args_into_dataclasses(args=remaining_args)
-        print(f"Loaded instance dpo_args")
+    # elif args.train_args_path == "dpo_args":
+    #     parser_c = HfArgumentParser((dpo_TrainArgument,))
+    #     train_args, = parser_c.parse_args_into_dataclasses(args=remaining_args)
+    #     print(f"Loaded instance dpo_args")
     else:
         raise ValueError("Invalid train_args_path choice")
 
@@ -156,9 +153,6 @@ def create_model(args, train_args):
 
 
 def load_sft_dataset(args, tokenizer):
-    # if args.template_name not in template_dict.keys():
-    #     raise Exception(f"template_name doesn't exist, all template_name: {template_dict.keys()}")
-    # template = template_dict[args.template_name]
     train_dataset = MultiRoundDataProcess(args.train_data_path, tokenizer, args.max_len)
     return train_dataset
 
@@ -169,18 +163,13 @@ def load_dpo_dataset(args, tokenizer):
         train_dataset = load_dataset(data_files=args.train_data_path, path='json')
         train_dataset = train_dataset['train']
         return train_dataset
-    # 使用自己构建的dpo dataset，用于自己科研或魔改使用。
-    # elif args.task_type == 'dpo_single':
-    #     template = template_dict['qwen']
-    #     train_dataset = DpoDataset(args.train_data_path, tokenizer, args.max_len, args.max_prompt_length, template)
-    #     return train_dataset
 
 
 def create_trainer(args, train_args):
     tokenizer = create_tokenizer(args)
     model_dict = create_model(args, train_args)
     model = model_dict['model']
-    peft_config = model_dict['peft_config']
+    # peft_config = model_dict['peft_config']
 
     if args.task_type == 'sft':
         logger.info('Train model with sft task')
@@ -188,27 +177,17 @@ def create_trainer(args, train_args):
         data_collator = SftDataCollator(tokenizer, args.max_len)
     elif args.task_type == 'pretrain':
         pass
-    elif args.task_type == 'dpo_multi' or args.task_type == 'dpo_single':
-        train_dataset = load_dpo_dataset(args, tokenizer)
-        data_collator = None
 
     # sft or pretrain
-    if args.task_type == 'sft' or args.task_type == 'pretrain':
+    if args.task_type == 'sft':
         trainer = Trainer(
             model=model,
             args=train_args,
             train_dataset=train_dataset,
             data_collator=data_collator
         )
-    else:
-        trainer = DPOTrainer(
-            model,
-            ref_model=None,
-            args=train_args,
-            train_dataset=train_dataset,
-            tokenizer=tokenizer,
-            peft_config=peft_config
-        )
+    elif args.task_type == 'pretrain':
+        pass
 
     return trainer
 
@@ -220,9 +199,10 @@ def main():
     # 开始训练
     logger.info("*** starting training ***")
     train_result = trainer.train()
-    # 保存checkpoint /Transformers 更新了自动保存最后训练结果
+    # Transformers 更新了自动保存最后训练结果
     # final_save_path = join(train_args.output_dir)
-    # trainer.save_model(final_save_path)  # Saves the tokenizer too
+    # trainer.save_model(final_save_path)
+
     # 保存训练指标
     metrics = train_result.metrics
     trainer.log_metrics("train", metrics)

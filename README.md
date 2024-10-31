@@ -25,7 +25,7 @@ Tips: 图片完全由AI生成
 - [致谢](#-致谢)
 
 ## 📖 Latest News
-- [2024-10-30] 更新优化DPO训练
+- [2024-10-31] 添加auto_adapt参数控制是否自动适配template、更新优化DPO训练(迁移至RLHF目录下)
 - [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏](./rlhf/README.md)
 - [2024-10-14] 删除chat template模块，因为使用tokenizer的apply_chat_template即可
 - [2024-09-20] 增加evaluate模块，一个简洁的模型评测框架，目前仅支持Humaneval。可见[Evaluate](./evaluate/README.md)
