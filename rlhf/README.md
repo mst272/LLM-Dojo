@@ -28,7 +28,7 @@
 
 ## RLHF
 ### 目前支持的RLHF
-支持单轮形式和多轮形式。不过实践来看主要的训练方式即为单轮。
+实践来看主要的训练方式即为单轮。
 
 - ✅ Reward模型的训练
 - ✅ RLOO
@@ -38,7 +38,7 @@
 - ✅ SimPO
 - ✅ CPO
 - ✅ CPO-SimPO
-- ✅ DPO：详情见 [DPO](../train_args/dpo/README.md)，历史原因还没来得及合并到此目录下。
+- ✅ DPO
 
 ### Quick Star
 

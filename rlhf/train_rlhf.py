@@ -13,10 +13,24 @@ from transformers import (
 import pandas as pd
 import torch
 import torch.nn as nn
+from trl import DPOTrainer, CPOTrainer
+from trl.trainer.rloo_trainer import RLOOTrainer
+
 from common_args import CommonArgs
 from loguru import logger
 
-
+trainer_map = {
+    "RLOO": RLOOTrainer,
+    "DPO": DPOTrainer,
+    "CPO": CPOTrainer
+}
+model_kwargs_map = {
+    "RLOO": dict(),
+}
+# 从字典中获取相应的 Trainer 类
+# TrainerClass = trainer_map.get(trainer_type)
+# if TrainerClass is None:
+#     raise ValueError(f"Unknown trainer type: {trainer_type}")
 def load_config(args):
     # 根据config_option加载相应的配置
     module_path = args.train_args_path.replace("/", ".").rstrip(".py")
@@ -45,6 +59,14 @@ def find_all_linear_names(model):
         lora_module_names.remove('lm_head')
     lora_module_names = list(lora_module_names)
     return lora_module_names
+
+
+def load_policy():
+    pass
+
+
+def load_ref():
+    pass
 
 
 def split_data(raw_datasets, eval_samples):

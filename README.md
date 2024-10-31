@@ -15,7 +15,7 @@ Tips: 图片完全由AI生成
 - [项目简介](#-项目简介)
 - [Latest News](#-latest-news)
 - [RLHF训练框架](#rlhf训练框架)
-- [SFT训练框架(包括DPO)](#sft训练框架)
+- [SFT训练框架](#sft训练框架)
   - [已支持微调模型](#已支持微调模型)
   - [训练数据格式说明](#训练数据格式说明)
   - [适配框架数据处理](#适配框架数据处理)
@@ -94,9 +94,7 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 运行后即可得到无system的user、assistant指定格式。
 
 ### 🤓Quick Start
-包括SFT和DPO。
-
-目前支持直接**python命令单卡训练**、**deepspeed单机多卡**及**单机单卡训练**. 所有方式均支持Qlora、Lora、Dora方法。
+目前支持直接**python命令单卡训练**、**deepspeed(推荐使用)单机多卡**及**单机单卡训练**. 所有方式均支持Qlora、Lora、Dora方法。
 
 #### SFT微调(FineTune)
 
@@ -143,10 +141,6 @@ deepspeed --include localhost:6,7 main_train.py
 | Lora       | Qwen（7B） | 26g  |
 | Lora+Zero2 | Qwen（7B） | 26g  |
 | Lora+zero3 | Qwen（7B） | 16g  |
-
-#### DPO
-目前区分single_dpo和multi_dpo模式，前者是自己实现dataset并映射，以供大家魔改使用。 
-后者采用官方示例，故建议使用后者。具体使用说明可见：[DPO使用说明](./train_args/dpo/README.md)
 
 ## Tricks
  所有相关的trciks及讲解都在llm_tricks文件夹下
