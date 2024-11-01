@@ -1,28 +1,28 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from base_config import BaseConfig
+from typing import Literal
 from trl import DPOConfig
 
 
 @dataclass
-class DPOConfig(DPOConfig):
+class DPOConfig(BaseConfig, DPOConfig):
     """
-    训练参数, 可直接在此修改. 想看DPOConfig可直接在继承的类中去看
+    训练参数, 可直接在此修改. 想看更多参数可直接在继承的DPOConfig类中去看
     """
-    output_dir: str = field(default='', metadata={"help": "模型训练完成后的保存路径"})
-    num_train_epochs: int = 1,
-
-    per_device_train_batch_size: int = 2
-    gradient_checkpointing: bool = True
-    gradient_accumulation_steps: int = 16,
-
-    learning_rate: float = 2e-4
-    logging_steps: int = 10
-    save_steps: int = 500
-    save_strategy: str = "steps"
-    save_total_limit: int = 2
-    lr_scheduler_type: str = "constant_with_warmup",
-    warmup_steps: int = 10
-    optim: str = 'adamw_torch'
-    report_to: str = 'tensorboard'
-    remove_unused_columns: bool = False
-    bf16: bool = True
-    fp16: bool = False
+    beta: float = 0.1
+    label_smoothing: float = 0.0
+    loss_type: Literal[
+        "sigmoid",
+        "hinge",
+        "ipo",
+        "exo_pair",
+        "nca_pair",
+        "robust",
+        "bco_pair",
+        "sppo_hard",
+        "aot",
+        "aot_pair",
+        "apo_zero",
+        "apo_down",
+    ] = "sigmoid"
+    label_pad_token_id: int = -100
