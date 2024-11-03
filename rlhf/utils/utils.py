@@ -50,3 +50,78 @@ def fix_chat_template_if_needed(tokenizer, prompt: List[Dict[str, str]], chosen:
     fixed_chosen = conversation_chosen[start_position:]
     fixed_rejected = conversation_rejected[start_position:]
     return fixed_prompt, fixed_chosen, fixed_rejected
+
+
+# def split_data(raw_datasets, eval_samples):
+#     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+#     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+#     return train_dataset, eval_dataset
+
+
+# def load_data_prompt(tokenizer, train_data_path, eval_samples):
+#     raw_datasets = pd.read_json(train_data_path, lines=True)
+#     for i in range(len(raw_datasets)):
+#         pro = raw_datasets['prompt'][i]
+#         res = tokenizer.apply_chat_template(pro, tokenize=False)
+#         raw_datasets.loc[i, 'prompt'] = res
+#     raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
+#
+#     def tokenize(element):
+#         outputs = tokenizer(
+#             element['prompt'],
+#             padding=False,
+#         )
+#         return {"input_ids": outputs["input_ids"]}
+#
+#     raw_datasets = raw_datasets.map(
+#         tokenize,
+#         remove_columns=raw_datasets.column_names,
+#         batched=True,
+#         num_proc=multiprocessing.cpu_count(),  # multiprocessing.cpu_count(),
+#         load_from_cache_file=False,
+#     )
+#     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+#     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+#     return train_dataset, eval_dataset
+
+
+# def test_tokenizer_chat_template(tokenizer, prompt, chosen):
+#     test_prompt = tokenizer.apply_chat_template(prompt, tokenize=False)
+#     test_chosen = tokenizer.apply_chat_template(chosen, tokenize=False)
+#     one_conversation = copy.deepcopy(prompt)
+#     one_conversation.append(chosen[-1])
+#     one_conversation = tokenizer.apply_chat_template(one_conversation, tokenize=False)
+#     if one_conversation == test_prompt + test_chosen:
+#         return True
+#     else:
+#         logger.warning("Chat template is not right, Start automatic repair!")
+#         return False
+#
+
+# def load_data_all(tokenizer, train_data_path, eval_samples):
+#     raw_datasets = pd.read_json(train_data_path, lines=True)
+#     prompt, chosen = raw_datasets['prompt'][0], raw_datasets['chosen'][0]
+#     if not test_tokenizer_chat_template(tokenizer, prompt, chosen):
+#         for i in range(len(raw_datasets)):
+#             conversation_chosen = raw_datasets['prompt'][i][:]
+#             conversation_rejected = raw_datasets['prompt'][i][:]
+#             conversation_chosen.append(raw_datasets['chosen'][i][-1])
+#             conversation_rejected.append(raw_datasets['rejected'][i][-1])
+#             conversation_chosen = tokenizer.apply_chat_template(conversation_chosen, tokenize=False)
+#             conversation_rejected = tokenizer.apply_chat_template(conversation_rejected, tokenize=False)
+#             start_position = conversation_chosen.find(raw_datasets['chosen'][i][-1]['content'])
+#             raw_datasets.loc[i, 'prompt'] = conversation_chosen[:start_position]
+#             raw_datasets.loc[i, 'chosen'] = conversation_chosen[start_position:]
+#             raw_datasets.loc[i, 'rejected'] = conversation_rejected[start_position:]
+#     else:
+#         for i in range(len(raw_datasets)):
+#             raw_datasets.loc[i, 'prompt'] = tokenizer.apply_chat_template(raw_datasets['prompt'][i], tokenize=False)
+#             raw_datasets.loc[i, 'chosen'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
+#                 raw_datasets['chosen'][i], tokenize=False)
+#             raw_datasets.loc[i, 'rejected'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
+#                 raw_datasets['rejected'][i], tokenize=False)
+#     raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
+#     logger.warning("Now, the chat template is not right!")
+#     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
+#     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
+#     return train_dataset, eval_dataset

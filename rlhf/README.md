@@ -28,7 +28,7 @@
 
 ## RLHF
 ### 目前支持的RLHF
-实践来看主要的训练方式即为单轮。
+实践来看主要的训练方式即为单轮。正在重构，故RLOO PPO暂时不可用。
 
 - ✅ Reward模型的训练
 - ✅ RLOO
@@ -47,6 +47,11 @@
 对于其余方法，则不需要训练reward模型。
 
 #### 数据格式要求
+
+1、自动适配Template格式，输入数据需为user assistant标准模式
+2、若选择不使用Template格式，那么输入数据改为prompt, chosen, rejected格式即可。
+
+
 
 数据格式一般要求有如下三个字段:
 - prompt

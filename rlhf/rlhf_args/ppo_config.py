@@ -1,11 +1,8 @@
-from dataclasses import dataclass, field
-from typing import Optional
-from trl.trainer.ppov2_trainer import PPOv2Config
+from dataclasses import dataclass
+from trl import PPOConfig as TrlPPOConfig
+from base_config import BaseConfig
 
 
 @dataclass
-class PPOConfig(PPOv2Config):
-
-    # TrainingArguments的相关参数
-    train_data_path: Optional[str] = field(default='./', metadata={"help": "训练集路径"})
-
+class PPOConfig(BaseConfig, TrlPPOConfig):
+    eval_samples = 100  # eval数量

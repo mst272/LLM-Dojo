@@ -1,8 +1,6 @@
 import importlib
-import multiprocessing
-import copy
-from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
-from datasets import Dataset
+from peft import LoraConfig, TaskType
+from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -10,23 +8,24 @@ from transformers import (
     HfArgumentParser,
     BitsAndBytesConfig,
 )
-import pandas as pd
 import torch
 import torch.nn as nn
-from trl import DPOTrainer, CPOTrainer
-from trl.trainer.rloo_trainer import RLOOTrainer
-
+from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer
 from common_args import CommonArgs
 from loguru import logger
 
+with_reward_model_list = ['RLOO', 'PPO']
+
 trainer_map = {
+    'PPO': PPOTrainer,
     "RLOO": RLOOTrainer,
     "DPO": DPOTrainer,
-    "CPO": CPOTrainer
+    "CPO": CPOTrainer,
+    "SimPO": CPOTrainer,
+    "CPOSimPO": CPOTrainer
 }
-model_kwargs_map = {
-    "RLOO": dict(),
-}
+
+
 # 从字典中获取相应的 Trainer 类
 # TrainerClass = trainer_map.get(trainer_type)
 # if TrainerClass is None:
@@ -61,87 +60,24 @@ def find_all_linear_names(model):
     return lora_module_names
 
 
-def load_policy():
+def load_classification_reward():
     pass
 
 
-def load_ref():
+def load_judge_reward():
     pass
 
 
-def split_data(raw_datasets, eval_samples):
-    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
-    return train_dataset, eval_dataset
-
-
-def load_data_prompt(tokenizer, train_data_path, eval_samples):
-    raw_datasets = pd.read_json(train_data_path, lines=True)
-    for i in range(len(raw_datasets)):
-        pro = raw_datasets['prompt'][i]
-        res = tokenizer.apply_chat_template(pro, tokenize=False)
-        raw_datasets.loc[i, 'prompt'] = res
-    raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
-
-    def tokenize(element):
-        outputs = tokenizer(
-            element['prompt'],
-            padding=False,
-        )
-        return {"input_ids": outputs["input_ids"]}
-
-    raw_datasets = raw_datasets.map(
-        tokenize,
-        remove_columns=raw_datasets.column_names,
-        batched=True,
-        num_proc=multiprocessing.cpu_count(),  # multiprocessing.cpu_count(),
-        load_from_cache_file=False,
+def load_tokenizer(path):
+    tokenizer = AutoTokenizer.from_pretrained(
+        path,
+        padding_side="left",
+        trust_remote_code=True,
     )
-    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
-    return train_dataset, eval_dataset
 
-
-def test_tokenizer_chat_template(tokenizer, prompt, chosen):
-    test_prompt = tokenizer.apply_chat_template(prompt, tokenize=False)
-    test_chosen = tokenizer.apply_chat_template(chosen, tokenize=False)
-    one_conversation = copy.deepcopy(prompt)
-    one_conversation.append(chosen[-1])
-    one_conversation = tokenizer.apply_chat_template(one_conversation, tokenize=False)
-    if one_conversation == test_prompt + test_chosen:
-        return True
-    else:
-        logger.warning("Chat template is not right, Start automatic repair!")
-        return False
-
-
-def load_data_all(tokenizer, train_data_path, eval_samples):
-    raw_datasets = pd.read_json(train_data_path, lines=True)
-    prompt, chosen = raw_datasets['prompt'][0], raw_datasets['chosen'][0]
-    if not test_tokenizer_chat_template(tokenizer, prompt, chosen):
-        for i in range(len(raw_datasets)):
-            conversation_chosen = raw_datasets['prompt'][i][:]
-            conversation_rejected = raw_datasets['prompt'][i][:]
-            conversation_chosen.append(raw_datasets['chosen'][i][-1])
-            conversation_rejected.append(raw_datasets['rejected'][i][-1])
-            conversation_chosen = tokenizer.apply_chat_template(conversation_chosen, tokenize=False)
-            conversation_rejected = tokenizer.apply_chat_template(conversation_rejected, tokenize=False)
-            start_position = conversation_chosen.find(raw_datasets['chosen'][i][-1]['content'])
-            raw_datasets.loc[i, 'prompt'] = conversation_chosen[:start_position]
-            raw_datasets.loc[i, 'chosen'] = conversation_chosen[start_position:]
-            raw_datasets.loc[i, 'rejected'] = conversation_rejected[start_position:]
-    else:
-        for i in range(len(raw_datasets)):
-            raw_datasets.loc[i, 'prompt'] = tokenizer.apply_chat_template(raw_datasets['prompt'][i], tokenize=False)
-            raw_datasets.loc[i, 'chosen'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
-                raw_datasets['chosen'][i], tokenize=False)
-            raw_datasets.loc[i, 'rejected'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
-                raw_datasets['rejected'][i], tokenize=False)
-    raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
-    logger.warning("Now, the chat template is not right!")
-    train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-    eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
-    return train_dataset, eval_dataset
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+    return tokenizer
 
 
 def main():
@@ -153,17 +89,11 @@ def main():
     ################
     # Model & Tokenizer
     ################
-    tokenizer = AutoTokenizer.from_pretrained(
-        config.sft_model_path,
-        padding_side="left",
-        trust_remote_code=True,
-    )
-
-    if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+    tokenizer = load_tokenizer(args.model_name_or_path)
 
     model_kwargs = dict(
-        trust_remote_code=True
+        trust_remote_code=True,
+        torch_dtype=torch.float16 if config.fp16 else torch.bfloat16,
     )
 
     if args.train_mode == 'qlora':
@@ -176,7 +106,9 @@ def main():
             llm_int8_has_fp16_weight=False,
         )
         model_kwargs.update(quantization_config=quantization_config)
-    if args.rlhf_type in ['PPO', 'RLOO']:
+
+    # 决定是否加载Reward model
+    if args.rlhf_type in with_reward_model_list:
         # 如果模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射
         try:
             reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
@@ -184,67 +116,57 @@ def main():
         except Exception as e:
             assert False, "模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射"
 
-    ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
-    policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path, **model_kwargs)
-    lora_config = LoraConfig(
-        task_type=TaskType.CAUSAL_LM,
-        target_modules=find_all_linear_names(policy),
-        r=args.lora_rank,  # Lora 秩
-        lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
-        lora_dropout=args.lora_dropout,  # Dropout 比例
-        use_dora=args.use_dora
-    )
-    if args.train_mode == 'lora':
-        policy.enable_input_require_grads()
-        policy = get_peft_model(policy, lora_config)
-    elif args.train_mode == 'qlora':
-        policy = prepare_model_for_kbit_training(policy, use_gradient_checkpointing=config.gradient_checkpointing)
-        policy = get_peft_model(policy, lora_config)
+    policy = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
+    ref_model = None  # if peft, the model with a disabled adapter
+
+    if args.train_mode in ['lora', 'qlora']:
+        lora_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            target_modules=find_all_linear_names(policy),
+            r=args.lora_rank,  # Lora 秩
+            lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
+            lora_dropout=args.lora_dropout,  # Dropout 比例
+            use_dora=args.use_dora
+        )
+    else:
+        ref_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
+        lora_config = None
 
     ################
     # Training
     ################
-    if args.rlhf_type == 'RLOO':
-        from trl.trainer.rloo_trainer import RLOOTrainer
-        train_dataset, eval_dataset = load_data_prompt(tokenizer, config.train_data_path, config.eval_samples)
-        trainer = RLOOTrainer(
-            config=config,
-            tokenizer=tokenizer,
-            policy=policy,
-            ref_policy=ref_policy,
-            reward_model=reward_model,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-        )
-
-    elif args.rlhf_type == 'PPO':
-        from trl.trainer.ppov2_trainer import PPOv2Trainer
-        train_dataset, eval_dataset = load_data_prompt(tokenizer, config.train_data_path, config.eval_samples)
-        value_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
-                                                                         trust_remote_code=True)
-        trainer = PPOv2Trainer(
-            config=config,
-            tokenizer=tokenizer,
-            policy=policy,
-            ref_policy=ref_policy,
-            reward_model=reward_model,
-            value_model=value_model,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-        )
-    # todo: 更优雅的方式实现？
-    elif args.rlhf_type in ['CPO', 'SimPO', 'CPOSimPO']:
-        from trl import CPOTrainer
-        train_dataset, eval_dataset = load_data_all(tokenizer, config.train_data_path, config.eval_samples)
-        trainer = CPOTrainer(
-            policy,
+    train_dataset = load_dataset(data_files=args.train_data_path, path='json')
+    trainer_kwargs_map = {
+        "DPO": dict(
+            model=policy,
+            ref_model=ref_model,
             args=config,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
+            train_dataset=train_dataset['train'],
+            eval_dataset=train_dataset['test'] if config.eval_strategy != "no" else None,
+            processing_class=tokenizer,
+            peft_config=lora_config,
+        ),
+        'CPO': dict(
+            model=policy,
+            args=config,
+            train_dataset=train_dataset['train'],
+            eval_dataset=train_dataset['test'] if config.eval_strategy != "no" else None,
+            processing_class=tokenizer,
+            peft_config=lora_config,
+        ),
+        "PPO": dict(
         )
-    else:
-        raise Exception
+    }
+    trainer_kwargs_map['SimPO'] = trainer_kwargs_map['CPO'].copy()
+    trainer_kwargs_map['CPOSimPO'] = trainer_kwargs_map['CPO'].copy()
+
+    # 从字典中获取相应的 Trainer 类
+    trainer_kwargs = trainer_kwargs_map.get(args.rlhf_type)
+    TrainerClass = trainer_map.get(args.rlhf_type)
+    if TrainerClass is None:
+        raise ValueError(f"Unknown trainer type: {args.rlhf_type}")
+
+    trainer = TrainerClass(**trainer_kwargs)
     trainer.train()
     trainer.save_model(config.output_dir)
 

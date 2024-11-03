@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from base_config import BaseConfig
 from typing import Literal
-from trl import DPOConfig
+from trl import DPOConfig as TrlDPOConfig
 
 
 @dataclass
-class DPOConfig(BaseConfig, DPOConfig):
+class DPOConfig(BaseConfig, TrlDPOConfig):
     """
-    训练参数, 可直接在此修改. 想看更多参数可直接在继承的DPOConfig类中去看
+    训练参数, 可直接在此修改. 想看更多参数可直接在TrlDPOConfig中去看
     """
     beta: float = 0.1
     label_smoothing: float = 0.0

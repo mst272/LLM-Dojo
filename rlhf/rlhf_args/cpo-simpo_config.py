@@ -13,8 +13,3 @@ class CPOSimPOConfig(CPOConfig):
     cpo_alpha: float = 0.5
     """combined use of CPO and SimPO, which enables more stable training and improved performance.A non-zero 
     cpo_alpha"""
-    eval_samples: int = 30
-    """eval sample的数量，注意不能少于batchsize*gradient_accumulation_steps"""
-    sft_model_path: str = "./"
-    """the path to the sft model"""
-

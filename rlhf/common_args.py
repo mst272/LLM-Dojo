@@ -17,6 +17,7 @@ class CommonArgs:
     """
     一些常用的自定义参数
     """
+    train_data_path: str = field(default='', metadata={"help": "训练数据路径"})
     train_args_path: TrainArgPath = field(default=TrainArgPath.RLOO_ARGS.value,
                                           metadata={"help": "当前模式训练参数,目前支持 [PPO,RLOO,CPO,SimPO,CPOSimPO]"})
     # 微调方法相关选择与配置
@@ -26,7 +27,8 @@ class CommonArgs:
     use_dora: bool = field(default=False,
                            metadata={"help": "仅在train_mode==lora时可以使用。是否使用Dora(一个基于Lora的变体)"})
 
-    # Model： lora相关配置
+    # model qlora lora相关配置
+    model_name_or_path: str = './'
     lora_rank: Optional[int] = field(default=64, metadata={"help": "lora rank"})
     lora_alpha: Optional[int] = field(default=16, metadata={"help": "lora alpha"})
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "lora dropout"})
