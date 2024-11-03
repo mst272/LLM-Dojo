@@ -13,6 +13,7 @@ import torch.nn as nn
 from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer
 from common_args import CommonArgs
 from loguru import logger
+from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_chat_template
 
 with_reward_model_list = ['RLOO', 'PPO']
 
@@ -25,11 +26,6 @@ trainer_map = {
     "CPOSimPO": CPOTrainer
 }
 
-
-# 从字典中获取相应的 Trainer 类
-# TrainerClass = trainer_map.get(trainer_type)
-# if TrainerClass is None:
-#     raise ValueError(f"Unknown trainer type: {trainer_type}")
 def load_config(args):
     # 根据config_option加载相应的配置
     module_path = args.train_args_path.replace("/", ".").rstrip(".py")
@@ -78,6 +74,22 @@ def load_tokenizer(path):
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
     return tokenizer
+
+
+def prepare_dataset(dataset, tokenizer):
+    """pre-tokenize the dataset before training; only collate during training"""
+
+    def tokenize(element):
+        outputs = tokenizer(
+            element['prompt'],
+            padding=False,
+        )
+        return {"input_ids": outputs["input_ids"]}
+
+    return dataset.map(
+        tokenize,
+        batched=True
+    )
 
 
 def main():
@@ -168,7 +180,7 @@ def main():
 
     trainer = TrainerClass(**trainer_kwargs)
     trainer.train()
-    trainer.save_model(config.output_dir)
+    # trainer.save_model(config.output_dir)
 
 
 if __name__ == "__main__":
