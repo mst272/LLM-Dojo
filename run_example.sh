@@ -3,13 +3,12 @@ DATA_PATH=''
 OUTPUT_PATH=""
 MODEL_PATH=""
 
-# task_type:[pretrain, sft, dpo_multi, dpo_single]
+# task_type:[sft]  pretrain正在开发
 # train_mode:[qlora, lora, full]
 # train_args_path: [sft_args,dpo_args]
 
 # deepspeed 启动
 deepspeed --include localhost:0,1 main_train.py\
-    --train_args_path "sft_args" \
     --train_data_path "$DATA_PATH" \
     --model_name_or_path "$MODEL_PATH" \
     --max_len 1024 \

@@ -1,3 +1,8 @@
+# 更新
+trl新版本已经更改dpo实现，故此处已不适用，新的DPO可见[RLHF](./rlhf/README.md)。
+
+
+
 # 关于DPO训练
 目前分为两个模式，分别是multi_dpo和single_dpo。**推荐一般使用multi_dpo**。
 
