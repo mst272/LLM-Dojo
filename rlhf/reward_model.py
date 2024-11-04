@@ -2,28 +2,10 @@ import pandas as pd
 from datasets import Dataset
 from transformers import AutoTokenizer, HfArgumentParser
 from trl import RewardTrainer, get_kbit_device_map, get_peft_config, get_quantization_config
-from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
 from reward_args.model_config import OurModelConfig
 from reward_args.reward_config import RewardConfig
-import torch.nn as nn
 from transformers import AutoModelForSequenceClassification
-
-
-def find_all_linear_names(model):
-    """
-    找出所有全连接层，为所有全连接添加adapter
-    """
-    cls = nn.Linear
-    lora_module_names = set()
-    for name, module in model.named_modules():
-        if isinstance(module, cls):
-            names = name.split('.')
-            lora_module_names.add(names[-1])
-
-    if 'lm_head' in lora_module_names:  # needed for 16-bit
-        lora_module_names.remove('lm_head')
-    lora_module_names = list(lora_module_names)
-    return lora_module_names
+from utils.utils import find_all_linear_names
 
 
 def main():
@@ -41,8 +23,6 @@ def main():
         quantization_config=quantization_config,
     )
     tokenizer = AutoTokenizer.from_pretrained(model_config.model_name_or_path, trust_remote_code=True)
-    if tokenizer.chat_template is None:
-        tokenizer.chat_template = SIMPLE_QUERY_CHAT_TEMPLATE
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
     # 如果模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射

@@ -2,7 +2,7 @@
 
 不同于其他框架实现的高度封装的强化学习框架，本框架使用简洁的代码基于TRL对各种强化学习方法进行了集成，便于自己修改与学习，是一个轻量化的强化学习框架。
 
-主要资源是在1-8张40G A100上进行实验，支持lora qlora 及deepspeed单卡或多卡训练。 一些细节问题还需要后续的优化。
+主要资源是在1-8张40G A100上进行实验，支持lora qlora 及deepspeed单卡或多卡训练。
 
 主要包括三类：
 
@@ -28,13 +28,14 @@
 
 ## RLHF
 ### 目前支持的RLHF
-实践来看主要的训练方式即为单轮。正在重构，故RLOO PPO暂时不可用。
+实践来看主要的训练方式即为单轮。正在重构，故Reward/RLOO/PPO暂时不可用。
 
+需要reward model
 - ✅ Reward模型的训练
 - ✅ RLOO
 - ✅ PPO
 
-不需要训练reward：
+不需要reward model：
 - ✅ SimPO
 - ✅ CPO
 - ✅ CPO-SimPO
@@ -48,24 +49,22 @@
 
 #### 数据格式要求
 
-1、自动适配Template格式，输入数据需为user assistant标准模式
-2、若选择不使用Template格式，那么输入数据改为prompt, chosen, rejected格式即可。
-
-
-
-数据格式一般要求有如下三个字段:
+数据格式一般要求有如下三个字段，Reward model训练只需chosen rejected:
 - prompt
 - chosen
 - rejected
 
-huggingface上也有很多数据集，例如：```trl-internal-testing/hh-rlhf-helpful-base-trl-style```，但其chosen和rejected中包含了prompt，并不严格符合数据格式。
+本框架采用的数据格式为jsonl:
 
-因为我们要构建模型的的chat template，故数据格式稍有不同，prompt中必须包含```role```和```content```字段。且在chosen和rejected中分离了prompt。
+1、自动适配Template格式，输入数据需为user assistant标准模式:
 
-本框架采用的数据格式为jsonl，具体可见示例数据：```rlhf/data_example/data.jsonl```。三个字段prompt、chosen 、rejected彼此分离，训练时再进行组合。
+具体可见示例数据：```rlhf/data_example/data.jsonl```。三个字段prompt、chosen 、rejected彼此分离，训练时再进行组合。
 
-此数据集可用于上述所有训练使用。且示例数据只是单轮，如若需要构建多轮，可以将多轮对话写在prompt中，最终的assistant回答分别写在chosen和rejected中(针对多轮其实还可以取每一轮的user当prompt，后面有时间可能会实现)。
-
+2、若选择不使用Template格式，那么输入数据直接改为prompt, chosen, rejected格式即可，如下:
+```json lines
+{"prompt":"How are you?","chosen":"fine", "rejected": "no"}
+```
+训练时便不会进行适配，采用原始输入进行训练。
 
 #### Step1 训练Reward Model
 
@@ -144,7 +143,7 @@ res_length为64
 **参数介绍**：
 - lmbda：0时为Supervised KD，1时为GKD。可在[0,1]范围内选择，这样就会混合比例
 - beta:  0时loss为KLD， 1时为JSD。可在[0,1]范围内选择，这样就会混合比例
-- seq_kd: True时Supervised KD将替换为Seq KD，默认为False，其他不变。（最近才合并的PR，trl还没有更新，暂时先写下）
+- seq_kd: True时Supervised KD将替换为Seq KD，默认为False，其他不变。
 - model_name_or_path：Student Model，即你需要训练的模型
 - teacher_model_name_or_path：Teacher Model, 不训练。
 
