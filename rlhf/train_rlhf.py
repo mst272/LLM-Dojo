@@ -126,6 +126,22 @@ def main():
         )
         model_kwargs.update(quantization_config=quantization_config)
 
+    policy = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
+    ref_model = None  # if peft, the model with a disabled adapter
+
+    if args.train_mode in ['lora', 'qlora']:
+        lora_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            target_modules=find_all_linear_names(policy),
+            r=args.lora_rank,  # Lora 秩
+            lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
+            lora_dropout=args.lora_dropout,  # Dropout 比例
+            use_dora=args.use_dora
+        )
+    else:
+        ref_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
+        lora_config = None
+
     # 决定是否加载Reward model
     if args.rlhf_type in with_reward_model_list:
         # 如果模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射
@@ -143,22 +159,8 @@ def main():
         with PartialState().local_main_process_first():
             train_dataset = prepare_dataset(train_dataset, tokenizer)
             eval_dataset = prepare_dataset(eval_dataset, tokenizer)
-
-    policy = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
-    ref_model = None  # if peft, the model with a disabled adapter
-
-    if args.train_mode in ['lora', 'qlora']:
-        lora_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM,
-            target_modules=find_all_linear_names(policy),
-            r=args.lora_rank,  # Lora 秩
-            lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
-            lora_dropout=args.lora_dropout,  # Dropout 比例
-            use_dora=args.use_dora
-        )
-    else:
-        ref_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
-        lora_config = None
+        if ref_model is None:
+            ref_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, trust_remote_code=True, torch_dtype=torch.float16 if config.fp16 else torch.bfloat16)
 
     ################
     # Training
@@ -182,6 +184,15 @@ def main():
             peft_config=lora_config,
         ),
         "PPO": dict(
+        ),
+        "RLOO": dict(
+            config=config,
+            processing_class=tokenizer,
+            policy=policy,
+            ref_policy=ref_model,
+            reward_model=reward_model,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
         )
     }
     trainer_kwargs_map['SimPO'] = trainer_kwargs_map['CPO'].copy()
