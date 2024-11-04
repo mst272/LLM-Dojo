@@ -136,7 +136,7 @@ res_length为64
 - SeqKD(off-policy)
 - GKD(on-policy)
 
-具体介绍可参见文章：
+具体介绍可参见文章：[知识蒸馏](https://zhuanlan.zhihu.com/p/1064724364)
 
 ### Quick Star
 进入script目录下bash运行```gkd_run.sh```即可，修改对应参数运行。同样支持Deepspeed，参数介绍可看上述文章。

@@ -153,7 +153,7 @@ def create_model(args, train_args):
 
 
 def load_sft_dataset(args, tokenizer):
-    train_dataset = MultiRoundDataProcess(args.train_data_path, tokenizer, args.max_len)
+    train_dataset = MultiRoundDataProcess(args.train_data_path, tokenizer, args.max_len, args.auto_adapt)
     return train_dataset
 
 

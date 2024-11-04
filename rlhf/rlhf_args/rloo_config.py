@@ -10,4 +10,4 @@ class RLOOConfig(BaseConfig, TrlPLOOConfig):
     reward_model_path: str = "./"
     sft_model_path: str = "./"
     total_episodes: Optional[int] = None
-    eval_samples = 100  # eval数量
+    eval_samples = 30  # eval数量

@@ -9,6 +9,7 @@ from transformers import (
     BitsAndBytesConfig,
 )
 import torch
+from accelerate import PartialState
 import torch.nn as nn
 from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer
 from common_args import CommonArgs
@@ -25,6 +26,7 @@ trainer_map = {
     "SimPO": CPOTrainer,
     "CPOSimPO": CPOTrainer
 }
+
 
 def load_config(args):
     # 根据config_option加载相应的配置
@@ -99,6 +101,11 @@ def main():
     config = load_config(args)
 
     ################
+    # Data
+    ################
+    train_dataset = load_dataset(data_files=args.train_data_path, path='json')
+
+    ################
     # Model & Tokenizer
     ################
     tokenizer = load_tokenizer(args.model_name_or_path)
@@ -128,6 +135,15 @@ def main():
         except Exception as e:
             assert False, "模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射"
 
+        # data process
+        # Compute that only on the main process for faster data processing.
+        # see: https://github.com/huggingface/trl/pull/1255
+        train_dataset = train_dataset.select(range(len(train_dataset) - config.eval_samples))
+        eval_dataset = train_dataset.select(range(len(train_dataset) - config.eval_samples, len(train_dataset)))
+        with PartialState().local_main_process_first():
+            train_dataset = prepare_dataset(train_dataset, tokenizer)
+            eval_dataset = prepare_dataset(eval_dataset, tokenizer)
+
     policy = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
     ref_model = None  # if peft, the model with a disabled adapter
 
@@ -147,7 +163,6 @@ def main():
     ################
     # Training
     ################
-    train_dataset = load_dataset(data_files=args.train_data_path, path='json')
     trainer_kwargs_map = {
         "DPO": dict(
             model=policy,

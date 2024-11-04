@@ -5,4 +5,4 @@ from base_config import BaseConfig
 
 @dataclass
 class PPOConfig(BaseConfig, TrlPPOConfig):
-    eval_samples = 100  # eval数量
+    eval_samples = 30 # eval数量

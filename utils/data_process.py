@@ -4,7 +4,7 @@ from loguru import logger
 
 
 class MultiRoundDataProcess(Dataset):
-    def __init__(self, file, tokenizer, max_length, auto_adapt):
+    def __init__(self, file, tokenizer, max_length, auto_adapt=True):
         self.tokenizer = tokenizer
         self.max_length = max_length
         logger.info(f'Loading data: {file}')
