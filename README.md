@@ -4,10 +4,10 @@
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
-不同于其他优秀的开源训练框架的高度封装与集成，LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习且方便自己魔改与实验**，且与大多开源框架相同均是基于huggingface，性能并不会有太多出入。
+LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习且方便魔改与实验**，与大多开源框架相同均是基于huggingface。
 主要内容如下：
-- **大模型SFT训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora(Dora)、QLora、全参等训练，细节代码主要集中在```utils```文件夹下，训练代码在```main_train.py```。
-- **RLHF框架:** RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
+- **SFT训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora、QLora、全参等训练，自动适配chat template。
+- **RLHF框架:** RLHF训练框架，持续更新，包括 知识蒸馏，DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
 - **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
 
 ### 目录
@@ -15,6 +15,9 @@ Tips: 图片完全由AI生成
 - [项目简介](#-项目简介)
 - [Latest News](#-latest-news)
 - [RLHF训练框架](#rlhf训练框架)
+  - [已支持RLHF方法](#rlhf训练框架)
+  - [知识蒸馏](#rlhf训练框架)
+  - [拒绝采样](#rlhf训练框架)
 - [SFT训练框架](#sft训练框架)
   - [已支持微调模型](#已支持微调模型)
   - [训练数据格式说明](#训练数据格式说明)
@@ -25,6 +28,7 @@ Tips: 图片完全由AI生成
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-11-06] 重构RLHF，具体可见目录中RLHF训练框架部分
 - [2024-10-31] 添加auto_adapt参数控制是否自动适配template、更新优化DPO训练(迁移至RLHF目录下)
 - [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏](./rlhf/README.md)
 - [2024-10-14] 删除chat template模块，因为使用tokenizer的apply_chat_template即可
@@ -47,8 +51,17 @@ Tips: 图片完全由AI生成
 
 ## RLHF训练框架
 
-RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行。
+RLHF训练框架，支持并持续更新 知识蒸馏、Reward、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行。
 详情可见: [RLHF](./rlhf/README.md)。
+
+主要包括三类：
+
+**1、RLHF**
+
+**2、Knowledge Distillation (知识蒸馏)**
+
+**3、Rejected Sampling (拒绝采样) ：待更新**
+
 
 ## SFT训练框架
 
@@ -69,21 +82,14 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 - [x] [GLM系列](https://github.com/THUDM/GLM-4)
 
 ### 😮训练数据格式说明
-本框架采用的SFT数据格式无论单轮对话或多轮对话均为**jsonl**形式。**无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。**
-
-单轮对话即message字段中只有一对user和assistant，多轮对话则有多对。
+SFT数据格式为user(system) assistant标准模式,**无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。**
 
 示例如下，示例文件可参见```data/sft_data.jsonl```:
 ```json lines
 {"message": [{"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"},{"role": "user", "content": "How many helicopters can a human eat in one sitting"},{"role": "assistant", "content": "Sure! Here are some ways to eat bananas and dragonfruits together"},{"role": "user", "content": "你好"},{"role": "assistant", "content": "hellow"}]}
 ```
+可根据需求自行决定是否增加system字段，**建议训练数据没有特殊需求可删除system字段**
 
-
-可根据需求自行决定是否增加system字段，例如不需要或修改system则只需将上述示例数据中的
-删除或修改content即可。**建议训练数据没有特殊需求不必增加system字段**
-
-
-对于DPO数据，可见```data/dpo_multi_data.jsonl```示例数据
 
 ### 适配框架数据处理
 鉴于框架指定格式数据可能会跟常规数据有些不同，故可以通过```utils/script/generate_data.py```文件进行处理，输入应为正常的instruction和output的jsonl格式文件，
@@ -96,35 +102,21 @@ RLHF训练框架，支持并持续更新Reward训练、PPO、DPO、RLOO、SimPO�
 ### 🤓Quick Start
 目前支持直接**python命令单卡训练**、**deepspeed(推荐使用)单机多卡**及**单机单卡训练**. 所有方式均支持Qlora、Lora、Dora方法。
 
-#### SFT微调(FineTune)
 
-**1、支持命令行传参启动，启动示例可见```run_example.sh```**
+1、 支持命令行传参启动，启动示例可见: ```run_example.sh```
 
-**2、也支持参数文件直接修改默认值，具体如下：**
-
-##### Step1 配置args.py
-基本默认设置即可，常规的参数在train_args下的common_args.py。
-
-##### Step2 配置train_args/sft路径下base.py
-相关训练参数在base.py中,直接在default中修改即可。
-
-##### Step3 开始训练
-
-😶Python命令单卡启动：
-```bash
-python main_train.py
-```
-
-🙃Deepspeed单卡或多卡启动：
-
-使用Deepspeed训练时前两步与常规相同，但需要额外配置ds_config文件，项目中已给出常用的配置示例，位于```train_args/deepspeed_config/```路径下，
-更详细的Deepspeed原理及解释可以看文章：[Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
+2、 也支持参数文件直接修改默认值，常规的参数在train_args下的common_args.py, 训练参数在base.py。
 
 运行以下命令启动：
 ```bash
 deepspeed --include localhost:6,7 main_train.py
 ```
-其中```include localhost```参数用于选择训练的GPU，可选单卡也可选多卡。
+
+🙃Deepspeed单卡或多卡启动：
+
+使用Deepspeed训练时需要额外配置ds_config文件，项目中已给出常用的配置示例，位于```train_args/deepspeed_config/```路径下，
+更详细的Deepspeed原理及解释可以看文章：[Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
+
 
 显存占用测试如下：
 
