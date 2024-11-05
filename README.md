@@ -103,18 +103,15 @@ SFT数据格式为user(system) assistant标准模式,**无需指定单轮或多�
 目前支持直接**python命令单卡训练**、**deepspeed(推荐使用)单机多卡**及**单机单卡训练**. 所有方式均支持Qlora、Lora、Dora方法。
 
 
-1、 支持**命令行传参**启动，启动示例可见: ```run_example.sh```
+1、 支持**命令行传参**启动，启动示例可见: ```run_example.sh```。 **相关参数在train_args下的common_args.py和sft/base.py。**
 ```bash
 bash run_example.sh
 ```
 
-2、 也支持**参数文件直接修改默认值**，常规的参数在train_args下的common_args.py, 训练参数在base.py。
-
-运行以下命令启动：
+2、 也支持**参数文件直接修改默认值**，改好参数后运行以下命令启动：
 ```bash
 deepspeed --include localhost:6,7 main_train.py
 ```
-使用Deepspeed训练时需要额外配置ds_config文件，项目中已给出常用的配置示例，位于```train_args/deepspeed_config/```路径下，
 更详细的Deepspeed原理及解释可以看文章：[Deepspeed配置及使用讲解](https://zhuanlan.zhihu.com/p/698631348)
 
 
