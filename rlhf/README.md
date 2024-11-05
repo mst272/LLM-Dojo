@@ -1,6 +1,6 @@
 # RLHF 强化学习框架
 
-不同于其他框架实现的高度封装的强化学习框架，本框架使用简洁的代码基于TRL对各种强化学习方法进行了集成，便于自己修改与学习，是一个轻量化的强化学习框架。
+本框架使用简洁的代码基于Huggingface对各种强化学习方法进行了集成，便于自己修改与使用，是一个轻量化的强化学习框架。
 
 主要资源是在1-8张40G A100上进行实验，支持lora qlora 及deepspeed单卡或多卡训练。
 
@@ -15,11 +15,11 @@
 ## 目录
 
 - [RLHF](#rlhf)
-  - [目前支持的强化学习方法](#目前支持的rlhf)
+  - [目前支持的RLHF](#目前支持的rlhf)
   - [Quick Star](#quick-star)
     - [数据格式要求](#数据格式要求)
-    - [Step1 训练Reward Model](#step1-训练reward-model)
-    - [Step2 选择rlhf方法如dpo等](#step2-选择rlhf方法如dpo等)
+    - [数据格式选择](#数据格式选择)
+    - [启动训练](#启动训练)
     - [注意事项](#注意事项)
   - [显存实验](#显存实验)
 - [Knowledge Distillation](#knowledge-distillation)
@@ -28,93 +28,85 @@
 
 ## RLHF
 ### 目前支持的RLHF
-实践来看主要的训练方式即为单轮。正在重构，故Reward/RLOO/PPO暂时不可用。
+实践来看主要的训练方式即为单轮。**正在重构，故PPO暂时不可用。**
 
-需要reward model
 - ✅ Reward模型的训练
 - ✅ RLOO
-- ✅ PPO
-
-不需要reward model：
+- ✅ PPO(暂时不可用)
 - ✅ SimPO
 - ✅ CPO
 - ✅ CPO-SimPO
 - ✅ DPO
 
-### Quick Star
-
-对于PPO和RLOO，需要训练reward模型。
-
-对于其余方法，则不需要训练reward模型。
+### 🚀Quick Star
 
 #### 数据格式要求
+✅ DPO、CPO、SimPO、CPO-SimPO:
 
-数据格式一般要求有如下三个字段，Reward model训练只需chosen rejected:
+需要有如下字段：
 - prompt
 - chosen
 - rejected
 
-本框架采用的数据格式为jsonl:
+```json lines
+{"prompt":[{"role":"user","content":"How are you?"}],"chosen":[{"role":"assistant","content":"fine"}],"rejected":[{"role":"assistant","content":"no"}]}
+```
+✅ Reward:
+- chosen
+- rejected
 
-1、自动适配Template格式，输入数据需为user assistant标准模式:
+```json lines
+{"chosen":[{"role":"user","content":"How are you?"},{"role":"assistant","content":"fine"}],"rejected":[{"role":"user","content":"How are you?"},{"role":"assistant","content":"no"}]}
+```
+✅ DPO、RLOO:
+- prompt
 
-具体可见示例数据：```rlhf/data_example/data.jsonl```。三个字段prompt、chosen 、rejected彼此分离，训练时再进行组合。
+```json lines
+{"prompt":[{"role":"user","content":"How are you?"}]}
+```
 
-2、若选择不使用Template格式，那么输入数据直接改为prompt, chosen, rejected格式即可，如下:
+#### 数据格式选择
+
+**1.自动适配Chat Template格式**: 输入数据需为user assistant标准模式,具体可见上述数据格式要求。
+
+**2.不使用Chat格式**: 输入数据直接改为相应字段格式即可，例如:
 ```json lines
 {"prompt":"How are you?","chosen":"fine", "rejected": "no"}
 ```
+
+```json lines
+{"chosen":"How are you? fine", "rejected": "How are you? no"}
+```
 训练时便不会进行适配，采用原始输入进行训练。
 
-#### Step1 训练Reward Model
 
-**配置相关参数**
+#### 启动训练
 
-1、需要配置两个参数文件，都在```reward_args```内，第一个为```model_config.py```,主要配置模型相关，如是否lora、qlora等。
+两个参数配置文件，第一个为```common_args.py```, 其余不同方法的配置在```rlhf_args```文件夹内
 
-2、第二个在```model_config.py```，主要配置训练相关参数。
+建议使用deepspeed启动，启动脚本在```script/rlhf_run.sh```
 
-**启动**
-
-显存占用不算高，可以直接命令启动，也可以deepspeed启动(具体可见Step2中介绍)。
-```bash
-CUDA_VISIBLE_DEVICES=0 nohup accelerate launch --config_file ./ds_config/deepspeed_zero3.yaml reward_model.py
-```
-
-```bash
-python reward_model.py
-```
-
-注：
-训练Qwen2时遇到报错，提示```no padding token is defined```。需要在qwen2 ```config.json```中添加pad_token_id,在tokenizer中设置没用。
-
-#### Step2 选择RLHF方法，如DPO等
-
-**配置相关参数**
-
-1、需要配置两个参数文件，第一个为```common_args.py```,主要是配置训练方式(Lora/Qlora)及RLHF优化方法(PPO、RLOO等)等。
-
-2、第二个文件为RLHF优化方法的相关文件, 主要都在```rlhf_args```文件夹内
-
-**deepspeed启动**
-
-注：使用deepspeed时需要通过accelerate进行使用，直接deepspeed的话会报错(目前似乎没有很好的解决方案)
-
-```bash
-CUDA_VISIBLE_DEVICES=0 nohup accelerate launch --config_file ./ds_config/deepspeed_zero3.yaml train_rlhf.py
-```
-运行上述命令，参数解释如下：
-- CUDA_VISIBLE_DEVICES：代表你要用的卡，可以指定多块，但是要在deepspeed_zero3.yaml文件中修改```num_processes```为对应数量
-- config_file: deepspeed的yaml文件路径，在```ds_config```文件夹下
+ - rlhf_type: [PPO,RLOO,CPO,DPO,SimPO,CPOSimPO,Reward]
+ - train_mode: [lora, qlora, full]
 
 #### 注意事项
 1、需要自己去看AutoModelForSequenceClassification是否可以加载其Classification模型，不能的话需要在其config文件中映射。
 
 2、涉及到reward模型时，需要两个模型的tokenizer相同。
 
-3、一般来说trl的trainer是不支持使用deepspeed的optimizer和scheduler的
+3、使用deepspeed时需要通过accelerate进行使用，直接deepspeed的话会报错(目前似乎没有很好的解决方案)
 
-4、不支持Qlora和deepspeed zero-3，支持Qlora和deepspeed zero-2
+4、一般来说trl的trainer是不支持使用deepspeed的optimizer和scheduler的
+
+5、不支持Qlora和deepspeed zero-3，支持Qlora和deepspeed zero-2
+
+6、训练Qwen2时遇到报错，提示```no padding token is defined```。需要在qwen2 ```config.json```中添加pad_token_id,在tokenizer中设置没用。
+
+7、PPO/RLOO参数解释：
+
+See:https://github.com/huggingface/trl/issues/1740
+
+The ``num_train_epochs`` and ``num_ppo_epochs`` are actually two different things. The num_train_epochs means how many epochs do we go over the dataset, the num_ppo_epochs means the number of epochs we perform PPO updates on a batch of data. So, there is a subtle but meaningful difference here.
 
 
 #### 显存实验

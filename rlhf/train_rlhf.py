@@ -10,13 +10,14 @@ from transformers import (
 )
 import torch
 from accelerate import PartialState
-import torch.nn as nn
-from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer
+from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer, RewardTrainer
 from common_args import CommonArgs
+from utils.utils import find_all_linear_names
 from loguru import logger
 from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_chat_template
 
-with_reward_model_list = ['RLOO', 'PPO']
+WITH_REWARD_MODEL = ['RLOO', 'PPO']
+USE_REF_MODEL = ['DPO']
 
 trainer_map = {
     'PPO': PPOTrainer,
@@ -24,13 +25,24 @@ trainer_map = {
     "DPO": DPOTrainer,
     "CPO": CPOTrainer,
     "SimPO": CPOTrainer,
-    "CPOSimPO": CPOTrainer
+    "CPOSimPO": CPOTrainer,
+    'Reward': RewardTrainer
+}
+
+train_args_path = {
+    'PPO': 'rlhf_args/ppo_config.py',
+    "RLOO": 'rlhf_args/rloo_config.py',
+    "DPO": 'rlhf_args/dpo_config.py',
+    "CPO": 'rlhf_args/cpo_config.py',
+    "SimPO": 'rlhf_args/simpo_config.py',
+    "CPOSimPO": 'rlhf_args/cpo-simpo_config.py',
+    'Reward': 'rlhf_args/reward_config.py'
 }
 
 
 def load_config(args):
     # 根据config_option加载相应的配置
-    module_path = args.train_args_path.replace("/", ".").rstrip(".py")
+    module_path = train_args_path[args.rlhf_type].replace("/", ".").rstrip(".py")
     # 动态导入模块
     module = importlib.import_module(module_path)
     # 每个模块导入的类名均为TrainArgument
@@ -41,29 +53,17 @@ def load_config(args):
     return train_argument
 
 
-def find_all_linear_names(model):
-    """
-    找出所有全连接层，为所有全连接添加adapter
-    """
-    cls = nn.Linear
-    lora_module_names = set()
-    for name, module in model.named_modules():
-        if isinstance(module, cls):
-            names = name.split('.')
-            lora_module_names.add(names[-1])
-
-    if 'lm_head' in lora_module_names:  # needed for 16-bit
-        lora_module_names.remove('lm_head')
-    lora_module_names = list(lora_module_names)
-    return lora_module_names
-
-
-def load_classification_reward():
-    pass
-
-
 def load_judge_reward():
     pass
+
+
+def load_classification_reward(path, model_kwargs):
+    try:
+        reward_model = AutoModelForSequenceClassification.from_pretrained(path, num_labels=1,
+                                                                          **model_kwargs)
+        return reward_model
+    except Exception as e:
+        assert False, "模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射"
 
 
 def load_tokenizer(path):
@@ -126,30 +126,30 @@ def main():
         )
         model_kwargs.update(quantization_config=quantization_config)
 
-    policy = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
-    ref_model = None  # if peft, the model with a disabled adapter
+    # 加载policy model
+    if args.rlhf_type == 'Reward':
+        policy = load_classification_reward(args.model_name_or_path, model_kwargs)
+    else:
+        policy = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
 
     if args.train_mode in ['lora', 'qlora']:
         lora_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM,
+            task_type=TaskType.SEQ_CLS if args.rlhf_type == 'Reward' else TaskType.CAUSAL_LM,
             target_modules=find_all_linear_names(policy),
             r=args.lora_rank,  # Lora 秩
             lora_alpha=args.lora_alpha,  # Lora alpha，具体作用参见 Lora 原理
             lora_dropout=args.lora_dropout,  # Dropout 比例
             use_dora=args.use_dora
         )
-    else:
+        ref_model = None  # if peft, the model with a disabled adapter
+    elif args.rlhf_type in USE_REF_MODEL:
         ref_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
         lora_config = None
 
     # 决定是否加载Reward model
-    if args.rlhf_type in with_reward_model_list:
+    if args.rlhf_type in WITH_REWARD_MODEL:
         # 如果模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射
-        try:
-            reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1,
-                                                                              **model_kwargs)
-        except Exception as e:
-            assert False, "模型不支持AutoModelForSequenceClassification需要在对应config文件中添加映射"
+        reward_model = load_classification_reward(config.reward_model_path, model_kwargs)
 
         # data process
         # Compute that only on the main process for faster data processing.
@@ -160,7 +160,8 @@ def main():
             train_dataset = prepare_dataset(train_dataset, tokenizer)
             eval_dataset = prepare_dataset(eval_dataset, tokenizer)
         if ref_model is None:
-            ref_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, trust_remote_code=True, torch_dtype=torch.float16 if config.fp16 else torch.bfloat16)
+            ref_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, trust_remote_code=True,
+                                                             torch_dtype=torch.float16 if config.fp16 else torch.bfloat16)
 
     ################
     # Training
@@ -193,6 +194,14 @@ def main():
             reward_model=reward_model,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
+        ),
+        'Reward': dict(
+            model=policy,
+            processing_class=tokenizer,
+            args=config,
+            train_dataset=train_dataset['train'],
+            eval_dataset=train_dataset['test'] if config.eval_strategy != "no" else None,
+            peft_config=lora_config,
         )
     }
     trainer_kwargs_map['SimPO'] = trainer_kwargs_map['CPO'].copy()

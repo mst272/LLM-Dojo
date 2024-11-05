@@ -1,15 +1,5 @@
 from dataclasses import dataclass, field
 from typing import Optional
-from enum import Enum
-
-
-class TrainArgPath(Enum):
-    PPO_ARGS = 'rlhf_args/ppo_config.py'
-    RLOO_ARGS = 'rlhf_args/rloo_config.py'
-    CPO_ARGS = 'rlhf_args/cpo_config.py'
-    SimPO_ARGS = 'rlhf_args/simpo_config.py'
-    CPOSimPO_ARGS = 'rlhf_args/cpo-simpo_config.py'
-    DPO_ARGS = 'rlhf_args/dpo_config.py'
 
 
 @dataclass
@@ -18,18 +8,14 @@ class CommonArgs:
     一些常用的自定义参数
     """
     train_data_path: str = field(default='', metadata={"help": "训练数据路径"})
-    train_args_path: TrainArgPath = field(default=TrainArgPath.RLOO_ARGS.value,
-                                          metadata={"help": "当前模式训练参数,目前支持 [PPO,RLOO,CPO,SimPO,CPOSimPO]"})
     # 微调方法相关选择与配置
-    rlhf_type: str = field(default="RLOO",
-                           metadata={"help": "选择使用的RLHF方法，目前支持[PPO,RLOO,CPO,SimPO,CPOSimPO]"})
+    rlhf_type: str = field(default="DPO",
+                           metadata={"help": "选择使用的RLHF方法，目前支持[PPO,RLOO,DPO,CPO,SimPO,CPOSimPO,Reward]"})
     train_mode: str = field(default='lora', metadata={"help": "选择采用的训练方式：[qlora, lora, full]"})
-    use_dora: bool = field(default=False,
-                           metadata={"help": "仅在train_mode==lora时可以使用。是否使用Dora(一个基于Lora的变体)"})
 
     # model qlora lora相关配置
     model_name_or_path: str = './'
+    use_dora: bool = field(default=False, metadata={"help": "仅在train_mode==lora时可以使用。是否使用Dora(一个基于Lora的变体)"})
     lora_rank: Optional[int] = field(default=64, metadata={"help": "lora rank"})
     lora_alpha: Optional[int] = field(default=16, metadata={"help": "lora alpha"})
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "lora dropout"})
-
