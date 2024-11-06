@@ -7,7 +7,7 @@ TRAIN_DATA='./'
 MODEL_PATH='./'
 OUTPUT_PATH='./'
 
-CUDA_VISIBLE_DEVICES=2,3 accelerate launch --config_file ../ds_config/ds_zero2.yaml ../train_rlhf.py \
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --config_file ./ds_config/ds_zero2.yaml ./train_rlhf.py \
     --model_name_or_path "$MODEL_PATH" \
     --train_data_path "$TRAIN_DATA" \
     --output_dir "$OUTPUT_PATH" \
@@ -19,13 +19,13 @@ CUDA_VISIBLE_DEVICES=2,3 accelerate launch --config_file ../ds_config/ds_zero2.y
     --gradient_accumulation_steps 8 \
     --logging_steps 2 \
     --num_train_epochs 1 \
-    --fb16 \
+    --bf16 \
     --save_strategy "steps" \
     --report_to "wandb" \
     --save_steps 180 \
     --save_total_limit 5 \
     --warmup_steps 10 \
-    --no_remove_unused_columns \
+    --remove_unused_columns False\
     --lr_scheduler_type "cosine"
 
 # [CPO,DPO,SimPO,CPOSimPO,Reward] 可直接使用上述运行

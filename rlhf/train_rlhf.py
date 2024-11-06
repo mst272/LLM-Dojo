@@ -1,4 +1,5 @@
 import importlib
+import os
 from peft import LoraConfig, TaskType
 from datasets import load_dataset
 from transformers import (
@@ -15,6 +16,8 @@ from common_args import CommonArgs
 from utils.utils import find_all_linear_names
 from loguru import logger
 from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_chat_template
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 WITH_REWARD_MODEL = ['RLOO', 'PPO']
 USE_REF_MODEL = ['DPO']
@@ -49,8 +52,8 @@ def load_config(args, remaining_args):
     class_name = args.rlhf_type + "Config"
     # 使用getattr获取模块中的类
     argument = getattr(module, class_name)
-    train_argument = argument()
-    parser_b = HfArgumentParser((train_argument,))
+
+    parser_b = HfArgumentParser((argument,))
     train_args, = parser_b.parse_args_into_dataclasses(args=remaining_args)
     return train_args
 
@@ -179,7 +182,10 @@ def main():
             eval_dataset=train_dataset['test'] if config.eval_strategy != "no" else None,
             processing_class=tokenizer,
             peft_config=lora_config,
-        ),
+        )
+        if args.rlhf_type == 'DPO'
+        else dict()
+        ,
         'CPO': dict(
             model=policy,
             args=config,
@@ -187,7 +193,10 @@ def main():
             eval_dataset=train_dataset['test'] if config.eval_strategy != "no" else None,
             processing_class=tokenizer,
             peft_config=lora_config,
-        ),
+        )
+        if args.rlhf_type == 'CPO'
+        else dict()
+        ,
         "PPO": dict(
         ),
         "RLOO": dict(
@@ -198,7 +207,10 @@ def main():
             reward_model=reward_model,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-        ),
+        )
+        if args.rlhf_type == 'RLOO'
+        else dict()
+        ,
         'Reward': dict(
             model=policy,
             processing_class=tokenizer,
@@ -207,6 +219,8 @@ def main():
             eval_dataset=train_dataset['test'] if config.eval_strategy != "no" else None,
             peft_config=lora_config,
         )
+        if args.rlhf_type == 'Reward'
+        else dict()
     }
     trainer_kwargs_map['SimPO'] = trainer_kwargs_map['CPO'].copy()
     trainer_kwargs_map['CPOSimPO'] = trainer_kwargs_map['CPO'].copy()

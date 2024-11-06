@@ -1,7 +1,7 @@
 # 使用显卡数量需在yaml文件中修改num_processes参数
 
 # Lora模式， 如需QLora或者全参略微修改参数即可
-CUDA_VISIBLE_DEVICES=2,3 accelerate launch --config_file ./ds_zero3.yaml ../train_gkd.py \
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --config_file ./ds_config/ds_zero3.yaml ./train_gkd.py \
     --model_name_or_path deepseek-coder-6.7b-instruct \
     --teacher_model_name_or_path deepseek-coder-33b-instruct\
     --dataset_name ../data_example/gkd_data.jsonl \

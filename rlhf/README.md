@@ -84,7 +84,10 @@
 
 两个参数配置文件，第一个为```common_args.py```, 其余不同方法的配置在```rlhf_args```文件夹内
 
-建议使用deepspeed启动，启动脚本在```script/rlhf_run.sh```
+建议使用deepspeed启动，启动脚本在```rlhf_run.sh```
+```bash
+bash rlhf_run.sh
+```
 
  - rlhf_type: [PPO,RLOO,CPO,DPO,SimPO,CPOSimPO,Reward]
  - train_mode: [lora, qlora, full]
@@ -130,7 +133,10 @@ res_length为64
 具体介绍可参见文章：[知识蒸馏](https://zhuanlan.zhihu.com/p/1064724364)
 
 ### Quick Star
-进入script目录下bash运行```gkd_run.sh```即可，修改对应参数运行。同样支持Deepspeed，参数介绍可看上述文章。
+进入script目录下bash运行```gkd_run.sh```即可，修改对应参数运行。同样支持Deepspeed.
+```bash
+bash gkd_run.sh
+```
 
 **参数介绍**：
 - lmbda：0时为Supervised KD，1时为GKD。可在[0,1]范围内选择，这样就会混合比例

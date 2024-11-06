@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from trl import PPOConfig as TrlPPOConfig
-from base_config import BaseConfig
+from rlhf_args.base_config import BaseConfig
 
 
 @dataclass

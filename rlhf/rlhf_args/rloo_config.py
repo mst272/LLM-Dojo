@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
-from base_config import BaseConfig
+from rlhf_args.base_config import BaseConfig
 from trl import RLOOConfig as TrlPLOOConfig
 
 

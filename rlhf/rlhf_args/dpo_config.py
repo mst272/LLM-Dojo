@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from base_config import BaseConfig
+from rlhf_args.base_config import BaseConfig
 from typing import Literal
 from trl import DPOConfig as TrlDPOConfig
 
