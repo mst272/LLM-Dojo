@@ -138,6 +138,11 @@ deepspeed --include localhost:6,7 main_train.py
 - [从零代码构建MOE](https://zhuanlan.zhihu.com/p/701777558)
 - [一步一步实现Transformer代码](https://medium.com/@sdwzh2725/transformer-code-step-by-step-understandingtransformer-d2ea773f15fa)
 - [DPO训练QWEN2及魔改DPO实现](https://zhuanlan.zhihu.com/p/702569978)
+- [实现强化学习(RLHF)全流程代码构建（PPO、RLOO等）](https://zhuanlan.zhihu.com/p/708935028)
+- [从零实现强化学习DPO（SimPO）训练代码](https://zhuanlan.zhihu.com/p/716706368)
+- [实现一个简洁的代码模型评测框架（以Qwen2.5-coder 评测Humaneval为例）](https://zhuanlan.zhihu.com/p/721218072)
+- [大模型LLM知识蒸馏代码讲解与训练](https://zhuanlan.zhihu.com/p/1064724364)
+
 </details>
 
 
