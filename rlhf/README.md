@@ -111,6 +111,7 @@ See:https://github.com/huggingface/trl/issues/1740
 
 The ``num_train_epochs`` and ``num_ppo_epochs`` are actually two different things. The num_train_epochs means how many epochs do we go over the dataset, the num_ppo_epochs means the number of epochs we perform PPO updates on a batch of data. So, there is a subtle but meaningful difference here.
 
+8、CPO系列不支持fp16，支持bf16
 
 #### 显存实验
 res_length为64
