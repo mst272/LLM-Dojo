@@ -19,7 +19,7 @@ class BaseConfig(TrainingArguments):
     save_steps: int = 500
     save_strategy: str = "steps"
     save_total_limit: int = 2
-    lr_scheduler_type: str = "constant_with_warmup",
+    lr_scheduler_type: str = "cosine",
     warmup_steps: int = 10
     optim: str = 'adamw_torch'
     report_to: str = 'tensorboard'

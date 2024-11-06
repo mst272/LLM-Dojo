@@ -40,7 +40,7 @@ train_args_path = {
 }
 
 
-def load_config(args):
+def load_config(args, remaining_args):
     # 根据config_option加载相应的配置
     module_path = train_args_path[args.rlhf_type].replace("/", ".").rstrip(".py")
     # 动态导入模块
@@ -50,7 +50,9 @@ def load_config(args):
     # 使用getattr获取模块中的类
     argument = getattr(module, class_name)
     train_argument = argument()
-    return train_argument
+    parser_b = HfArgumentParser((train_argument,))
+    train_args, = parser_b.parse_args_into_dataclasses(args=remaining_args)
+    return train_args
 
 
 def load_judge_reward():
@@ -95,10 +97,12 @@ def prepare_dataset(dataset, tokenizer):
 
 
 def main():
+    # parser = HfArgumentParser((CommonArgs,))
+    # args = parser.parse_args_into_dataclasses()[0]
     parser = HfArgumentParser((CommonArgs,))
-    args = parser.parse_args_into_dataclasses()[0]
+    args, remaining_args = parser.parse_args_into_dataclasses(return_remaining_strings=True)
     # 根据CommonArgs中的config_option动态加载配置
-    config = load_config(args)
+    config = load_config(args, remaining_args)
 
     ################
     # Data

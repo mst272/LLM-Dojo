@@ -7,7 +7,7 @@ TRAIN_DATA='./'
 MODEL_PATH='./'
 OUTPUT_PATH='./'
 
-CUDA_VISIBLE_DEVICES=2,3 accelerate launch --ds_config ./dszero2.yaml ../train_rlhf.py \
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --config_file ../ds_config/ds_zero2.yaml ../train_rlhf.py \
     --model_name_or_path "$MODEL_PATH" \
     --train_data_path "$TRAIN_DATA" \
     --output_dir "$OUTPUT_PATH" \
