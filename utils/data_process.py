@@ -7,10 +7,10 @@ class MultiRoundDataProcess(Dataset):
     def __init__(self, file, tokenizer, max_length, auto_adapt=True):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        logger.info(f'Loading data: {file}')
+        # logger.info(f'Loading data: {file}')
         with open(file, 'r', encoding='utf8') as f:
             data_list = f.readlines()
-        logger.info(f"There are {len(data_list)} data in dataset")
+        # logger.info(f"There are {len(data_list)} data in dataset")
         self.data_list = data_list
         self.auto_adapt = auto_adapt
 

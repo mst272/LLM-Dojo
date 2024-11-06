@@ -8,7 +8,7 @@ MODEL_PATH=""
 # train_args_path: [sft_args,dpo_args]
 
 # deepspeed 启动
-deepspeed --include localhost:0,1 main_train.py\
+deepspeed --master_port 29507 --include localhost:0,1 main_train.py\
     --train_data_path "$DATA_PATH" \
     --model_name_or_path "$MODEL_PATH" \
     --max_len 1024 \
