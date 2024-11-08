@@ -11,7 +11,7 @@ from transformers import (
 )
 import torch
 from accelerate import PartialState
-from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer, RewardTrainer
+from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer, RewardTrainer, KTOTrainer
 from common_args import CommonArgs
 from utils.utils import find_all_linear_names
 from loguru import logger
@@ -20,7 +20,7 @@ from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_c
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 WITH_REWARD_MODEL = ['RLOO', 'PPO']
-USE_REF_MODEL = ['DPO']
+USE_REF_MODEL = ['DPO', 'RLOO', 'KTO']
 
 trainer_map = {
     'PPO': PPOTrainer,
@@ -29,7 +29,8 @@ trainer_map = {
     "CPO": CPOTrainer,
     "SimPO": CPOTrainer,
     "CPOSimPO": CPOTrainer,
-    'Reward': RewardTrainer
+    'Reward': RewardTrainer,
+    "KTO": KTOTrainer
 }
 
 train_args_path = {
@@ -39,7 +40,8 @@ train_args_path = {
     "CPO": 'rlhf_args/cpo_config.py',
     "SimPO": 'rlhf_args/simpo_config.py',
     "CPOSimPO": 'rlhf_args/cpo-simpo_config.py',
-    'Reward': 'rlhf_args/reward_config.py'
+    'Reward': 'rlhf_args/reward_config.py',
+    'KTO': 'rlhf_args/kto_config.py'
 }
 
 
@@ -100,8 +102,6 @@ def prepare_dataset(dataset, tokenizer):
 
 
 def main():
-    # parser = HfArgumentParser((CommonArgs,))
-    # args = parser.parse_args_into_dataclasses()[0]
     parser = HfArgumentParser((CommonArgs,))
     args, remaining_args = parser.parse_args_into_dataclasses(return_remaining_strings=True)
     # 根据CommonArgs中的config_option动态加载配置
@@ -183,7 +183,7 @@ def main():
             processing_class=tokenizer,
             peft_config=lora_config,
         )
-        if args.rlhf_type == 'DPO'
+        if args.rlhf_type in ['DPO', 'KTO']
         else dict()
         ,
         'CPO': dict(
@@ -194,7 +194,7 @@ def main():
             processing_class=tokenizer,
             peft_config=lora_config,
         )
-        if args.rlhf_type == 'CPO'
+        if args.rlhf_type in ['CPO', 'SimPO', 'CPOSimPO']
         else dict()
         ,
         "PPO": dict(
@@ -222,8 +222,10 @@ def main():
         if args.rlhf_type == 'Reward'
         else dict()
     }
+
     trainer_kwargs_map['SimPO'] = trainer_kwargs_map['CPO'].copy()
     trainer_kwargs_map['CPOSimPO'] = trainer_kwargs_map['CPO'].copy()
+    trainer_kwargs_map['KTO'] = trainer_kwargs_map['DPO'].copy()
 
     # 从字典中获取相应的 Trainer 类
     trainer_kwargs = trainer_kwargs_map.get(args.rlhf_type)

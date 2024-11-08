@@ -28,6 +28,7 @@ LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各�
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-11-06] 增加RLHF KTO训练方法
 - [2024-11-06] 重构RLHF，具体可见目录中RLHF训练框架部分
 - [2024-10-31] 添加auto_adapt参数控制是否自动适配template、更新优化DPO训练(迁移至RLHF目录下)
 - [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏](./rlhf/README.md)
@@ -51,7 +52,7 @@ LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各�
 
 ## RLHF训练框架
 
-RLHF训练框架，支持并持续更新 知识蒸馏、Reward、PPO、DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行。
+RLHF训练框架，支持并持续更新 知识蒸馏、Reward、PPO、DPO、RLOO、SimPO、KTO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行。
 详情可见: [RLHF](./rlhf/README.md)。
 
 主要包括三类：

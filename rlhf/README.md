@@ -37,6 +37,7 @@
 - ✅ CPO
 - ✅ CPO-SimPO
 - ✅ DPO
+- ✅ KTO
 
 ### 🚀Quick Star
 
@@ -51,6 +52,16 @@
 ```json lines
 {"prompt":[{"role":"user","content":"How are you?"}],"chosen":[{"role":"assistant","content":"fine"}],"rejected":[{"role":"assistant","content":"no"}]}
 ```
+✅ KTO:
+- prompt
+- completion
+- label
+
+比较特殊,相当于chosen的label为true,rejected的label为false：
+```json lines
+{"prompt":[{"role":"user","content":"How are you?"}],"completion":[{"role":"assistant","content":"fine"}],"label":true}
+```
+
 ✅ Reward:
 - chosen
 - rejected
