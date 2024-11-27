@@ -4,7 +4,7 @@
 CUDA_VISIBLE_DEVICES=2,3 accelerate launch --config_file ./ds_config/ds_zero3.yaml ./train_gkd.py \
     --model_name_or_path deepseek-coder-6.7b-instruct \
     --teacher_model_name_or_path deepseek-coder-33b-instruct\
-    --dataset_name ../data_example/gkd_data.jsonl \
+    --dataset_name ../data/gkd_data.jsonl \
     --learning_rate 2e-5 \
     --per_device_train_batch_size 4 \
     --gradient_accumulation_steps 8 \

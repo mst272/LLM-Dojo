@@ -91,6 +91,7 @@ SFT数据格式为user(system) assistant标准模式,**无需指定单轮或多�
 ```
 可根据需求自行决定是否增加system字段，**建议训练数据没有特殊需求可删除system字段**
 
+训练参数中auto_adapt参数控制是否自动适配template，如设置为False，则不自动适配，按原始的content进行训练。
 
 ### 适配框架数据处理
 鉴于框架指定格式数据可能会跟常规数据有些不同，故可以通过```utils/script/generate_data.py```文件进行处理，输入应为正常的instruction和output的jsonl格式文件，
