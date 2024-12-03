@@ -146,6 +146,12 @@ res_length为64
 
 ### Quick Star
 进入script目录下bash运行```gkd_run.sh```即可，修改对应参数运行。同样支持Deepspeed.
+若有问题请尝试 deepspeed==0.15.4
+
+一些潜在的问题，暂时还没得到解决：
+https://github.com/huggingface/alignment-handbook/issues/57
+https://github.com/microsoft/DeepSpeed/issues/6793#issuecomment-2502620884
+
 ```bash
 bash gkd_run.sh
 ```
