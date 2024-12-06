@@ -16,6 +16,6 @@ class CommonArgs:
     # model qlora lora相关配置
     model_name_or_path: str = './'
     use_dora: bool = field(default=False, metadata={"help": "仅在train_mode==lora时可以使用。是否使用Dora(一个基于Lora的变体)"})
-    lora_rank: Optional[int] = field(default=64, metadata={"help": "lora rank"})
+    lora_rank: Optional[int] = field(default=32, metadata={"help": "lora rank"})
     lora_alpha: Optional[int] = field(default=16, metadata={"help": "lora alpha"})
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "lora dropout"})

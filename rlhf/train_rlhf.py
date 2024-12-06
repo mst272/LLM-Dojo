@@ -1,3 +1,5 @@
+import deepspeed
+deepspeed.ops.op_builder.CPUAdamBuilder().load()
 import importlib
 import os
 from peft import LoraConfig, TaskType
