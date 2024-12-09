@@ -41,6 +41,16 @@
 
 ### 🚀Quick Star
 
+若有问题请尝试 deepspeed==0.15.4/python==3.10, 或者出现loss、rewards/chosen为nan时，请查看当前目录下的requirements.txt，按照此版本安装看是否能解决。
+
+一些潜在的问题，暂时还没得到解决或者潜在的解决方案：
+
+https://github.com/huggingface/alignment-handbook/issues/57
+
+https://github.com/microsoft/DeepSpeed/issues/6793#issuecomment-2502620884
+
+https://github.com/ymcui/Chinese-LLaMA-Alpaca-3/issues/29
+
 #### 数据格式要求
 ✅ DPO、CPO、SimPO、CPO-SimPO:
 
@@ -146,15 +156,7 @@ res_length为64
 
 ### Quick Star
 进入script目录下bash运行```gkd_run.sh```即可，修改对应参数运行。同样支持Deepspeed.
-若有问题请尝试 deepspeed==0.15.4
 
-一些潜在的问题，暂时还没得到解决或者潜在的解决方案：
-
-https://github.com/huggingface/alignment-handbook/issues/57
-
-https://github.com/microsoft/DeepSpeed/issues/6793#issuecomment-2502620884
-
-https://github.com/ymcui/Chinese-LLaMA-Alpaca-3/issues/29
 
 ```bash
 bash gkd_run.sh
