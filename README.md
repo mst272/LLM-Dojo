@@ -63,7 +63,6 @@ RLHF训练框架，支持并持续更新 知识蒸馏、Reward、PPO、DPO、RLO
 
 **3、Rejected Sampling (拒绝采样) ：待更新**
 
-
 ## SFT训练框架
 
 ### 已支持微调模型
@@ -124,6 +123,16 @@ deepspeed --include localhost:6,7 main_train.py
 | Lora       | Qwen（7B） | 26g  |
 | Lora+Zero2 | Qwen（7B） | 26g  |
 | Lora+zero3 | Qwen（7B） | 16g  |
+
+## VLM SFT
+
+### 已支持任务类型
+
+- Visual Question Answering
+
+### 数据格式
+- metadata.jsonl: 包含所有图片与文字信息，示例如下。
+- train/: 包含全部图片的文件夹
 
 ## Tricks
  所有相关的trciks及讲解都在llm_tricks文件夹下

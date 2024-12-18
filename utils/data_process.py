@@ -1,6 +1,7 @@
 import json
 from torch.utils.data import Dataset
 from loguru import logger
+from pathlib import Path
 
 
 class MultiRoundDataProcess(Dataset):
@@ -157,3 +158,10 @@ def find_sublist_start(main_list, sub_list):
         elif main_list[i + 1:i + sub_len] == sub_list[1:]:
             return i
     return -1
+
+
+# datasets直接加载也可以，但考虑可能的错误自己构建一个作为备选方案
+class VlmDataset(Dataset):
+    def __init__(self, data_file):
+        data_file = Path(data_file)
+        metadata_file = data_file.joinpath("metadata.jsonl")
