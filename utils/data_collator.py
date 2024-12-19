@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 import torch
 from loguru import logger
+from PIL import Image
 
 
 class SftDataCollator:
@@ -51,3 +52,46 @@ class SftDataCollator:
             'labels': labels
         }
         return inputs
+
+
+# todo: 针对不同VLM进行输入message处理
+def llava_template_process(questions: List[str], answers: List[str]):
+    converted_data = []
+    for question, answer in zip(questions, answers):
+        user_content = [{'index': None, 'text': question, 'type': 'text'}]
+        assistant_content = [{'index': None, 'text': answer, 'type': 'text'}]
+
+        converted_data.append({'content': user_content, 'role': 'user'})
+        converted_data.append({'content': assistant_content, 'role': 'assistant'})
+    image_dict = {'index': 0, 'text': None, 'type': 'image'}
+    converted_data[0]['content'].append(image_dict)
+    return converted_data
+
+def qwen_template_process(questions: List[str], answers: List[str]):
+    pass
+
+
+class VlmQaDataCollator:
+    def __init__(self, processor):
+        self.processor = processor
+
+    def __call__(self, examples):
+        texts = []
+        images = []
+        for example in examples:
+            standard_example = llava_template_process(example[0], example[1])
+            text = self.processor.apply_chat_template(
+                standard_example, tokenize=False, add_generation_prompt=False
+            )
+            texts.append(text)
+            raw_image = Image.open(example[2])
+            images.append(raw_image)
+
+        batch = self.processor(texts, images, return_tensors="pt", padding=True)
+
+        # 这里并没有mask question, 后续可能的扩充是设置mask question的模式。
+        labels = batch["input_ids"].clone()
+        labels[labels == self.processor.tokenizer.pad_token_id] = -100
+        batch['labels'] = labels
+
+        return batch

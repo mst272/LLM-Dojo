@@ -2,6 +2,8 @@ import json
 from torch.utils.data import Dataset
 from loguru import logger
 from pathlib import Path
+import pandas as pd
+from typing import Dict, List, Tuple
 
 
 class MultiRoundDataProcess(Dataset):
@@ -161,7 +163,43 @@ def find_sublist_start(main_list, sub_list):
 
 
 # datasets直接加载也可以，但考虑可能的错误自己构建一个作为备选方案
-class VlmDataset(Dataset):
+# [{'content': [{'index': 0, 'text': None, 'type': 'image'},
+#    {'index': None,
+#     'text': '\nWhat may be the purpose of this gathering in the field?',
+#     'type': 'text'}],
+#   'role': 'user'},
+#  {'content': [{'index': None,
+#     'text': 'The purpose engaging in an outdoor activity.',
+#     'type': 'text'}],
+#   'role': 'assistant'}]
+
+
+# 下面是我们的规定数据格式
+# [{'question':'Who is the person in the picture?', 'answer':'this is panda'},{'question':'Is it cool?', 'answer':'Yes'}]
+
+
+class VlmQaDataset(Dataset):
     def __init__(self, data_file):
-        data_file = Path(data_file)
-        metadata_file = data_file.joinpath("metadata.jsonl")
+        self.data_file = Path(data_file)
+        metadata_path = self.data_file.joinpath("metadata.jsonl")
+
+        self.messages = pd.read_json(metadata_path, lines=True)
+
+    def __len__(self):
+        return len(self.messages)
+
+    def __getitem__(self, item) -> Tuple[List[str], List[str], Path]:
+        message = self.messages['messages'][item]
+
+        # todo: 单图片输入，后续可扩展多图片输入？
+        image = self.messages['file_name'][item]
+        image_path = self.data_file.joinpath(image)
+
+        questions = []
+        answers = []
+
+        for text in message:
+            questions.append(text['question'])
+            answers.append(text['answer'])
+
+        return questions, answers, image_path
