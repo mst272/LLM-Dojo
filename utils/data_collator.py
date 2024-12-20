@@ -55,7 +55,7 @@ class SftDataCollator:
 
 
 # todo: 针对不同VLM进行输入message处理
-def llava_template_process(questions: List[str], answers: List[str]):
+def llava_template_process(questions: List[str], answers: List[str]) -> List[Dict]:
     converted_data = []
     for question, answer in zip(questions, answers):
         user_content = [{'index': None, 'text': question, 'type': 'text'}]
@@ -66,6 +66,7 @@ def llava_template_process(questions: List[str], answers: List[str]):
     image_dict = {'index': 0, 'text': None, 'type': 'image'}
     converted_data[0]['content'].append(image_dict)
     return converted_data
+
 
 def qwen_template_process(questions: List[str], answers: List[str]):
     pass
@@ -87,7 +88,7 @@ class VlmQaDataCollator:
             raw_image = Image.open(example[2])
             images.append(raw_image)
 
-        batch = self.processor(texts, images, return_tensors="pt", padding=True)
+        batch = self.processor(text=texts, images=images, return_tensors="pt", padding=True)
 
         # 这里并没有mask question, 后续可能的扩充是设置mask question的模式。
         labels = batch["input_ids"].clone()
