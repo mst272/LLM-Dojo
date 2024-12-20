@@ -6,7 +6,7 @@ from trl import (
     GKDTrainer,
     LogCompletionsCallback,
     ModelConfig,
-    SFTScriptArguments,
+    ScriptArguments,
     TrlParser,
     get_kbit_device_map,
     get_peft_config,
@@ -16,7 +16,7 @@ from accelerate import PartialState
 
 
 if __name__ == "__main__":
-    parser = TrlParser((SFTScriptArguments, GKDConfig, ModelConfig))
+    parser = TrlParser((ScriptArguments, GKDConfig, ModelConfig))
     args, training_args, model_config = parser.parse_args_and_config()
 
     ################
