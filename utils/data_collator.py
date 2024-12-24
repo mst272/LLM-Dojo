@@ -2,6 +2,7 @@ from typing import Any, Dict, List
 import torch
 from loguru import logger
 from PIL import Image
+from vlm_template import LlavaTemplateProcessor, Qwen2VLTemplateProcessor
 
 
 class SftDataCollator:
@@ -54,33 +55,38 @@ class SftDataCollator:
         return inputs
 
 
-# todo: 针对不同VLM进行输入message处理
-def llava_template_process(questions: List[str], answers: List[str]) -> List[Dict]:
-    converted_data = []
-    for question, answer in zip(questions, answers):
-        user_content = [{'index': None, 'text': question, 'type': 'text'}]
-        assistant_content = [{'index': None, 'text': answer, 'type': 'text'}]
+# def llava_template_process(questions: List[str], answers: List[str]) -> List[Dict]:
+#     converted_data = []
+#     for question, answer in zip(questions, answers):
+#         user_content = [{'index': None, 'text': question, 'type': 'text'}]
+#         assistant_content = [{'index': None, 'text': answer, 'type': 'text'}]
+#
+#         converted_data.append({'content': user_content, 'role': 'user'})
+#         converted_data.append({'content': assistant_content, 'role': 'assistant'})
+#     image_dict = {'index': 0, 'text': None, 'type': 'image'}
+#     converted_data[0]['content'].append(image_dict)
+#     return converted_data
 
-        converted_data.append({'content': user_content, 'role': 'user'})
-        converted_data.append({'content': assistant_content, 'role': 'assistant'})
-    image_dict = {'index': 0, 'text': None, 'type': 'image'}
-    converted_data[0]['content'].append(image_dict)
-    return converted_data
-
-
-def qwen_template_process(questions: List[str], answers: List[str]):
-    pass
+processor_class_map = {
+    'LlavaProcessor': LlavaTemplateProcessor,
+    'Qwen2VLProcessor': Qwen2VLTemplateProcessor,
+    # 可继续添加更多的处理器类
+}
 
 
 class VlmQaDataCollator:
     def __init__(self, processor):
         self.processor = processor
+        processor_class = processor.to_dict()['processor_class']
+        if processor_class not in processor_class_map:
+            raise ValueError(f"Unknown processor class: {processor_class}")
+        self.template_process = processor_class_map[processor_class]
 
     def __call__(self, examples):
         texts = []
         images = []
         for example in examples:
-            standard_example = llava_template_process(example[0], example[1])
+            standard_example = self.template_process(example[0], example[1])
             text = self.processor.apply_chat_template(
                 standard_example, tokenize=False, add_generation_prompt=False
             )
@@ -96,3 +102,7 @@ class VlmQaDataCollator:
         batch['labels'] = labels
 
         return batch
+
+
+class VlmCiDataCollator:
+    pass
