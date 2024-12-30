@@ -99,10 +99,12 @@ class VlmQaDataCollator:
         # 这里并没有mask question, 后续可能的扩充是设置mask question的模式。
         labels = batch["input_ids"].clone()
         labels[labels == self.processor.tokenizer.pad_token_id] = -100
+        # image_token_id = self.processor.tokenizer.convert_tokens_to_ids(self.processor.image_token)
+        # labels[labels == image_token_id] = -100
         batch['labels'] = labels
 
         return batch
 
 
-class VlmCiDataCollator:
+class VlmCaptionImageDataCollator:
     pass
