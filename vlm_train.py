@@ -44,9 +44,10 @@ def create_model_processor(model_args, script_args):
     )
 
     if script_args.train_mode in ['lora', 'qlora']:
-        model_args.target_modules = ["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"]
+        model_args.lora_target_modules = ["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"]
         model_args.use_peft = True
 
+        quantization_config = None
         if script_args.train_mode == 'qlora':
             model_args.load_in_4bit = True
             quantization_config = get_quantization_config(model_args)
@@ -67,7 +68,6 @@ def create_model_processor(model_args, script_args):
         'model': model,
         'processor': processor,
         'peft_config': get_peft_config(model_args),
-        'target_modules': model_args.target_modules
     }
 
 

@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 import torch
 from loguru import logger
 from PIL import Image
-from vlm_template import LlavaTemplateProcessor, Qwen2VLTemplateProcessor
+from utils.vlm_template import LlavaTemplateProcessor, Qwen2VLTemplateProcessor
 
 
 class SftDataCollator:
@@ -68,8 +68,8 @@ class SftDataCollator:
 #     return converted_data
 
 processor_class_map = {
-    'LlavaProcessor': LlavaTemplateProcessor,
-    'Qwen2VLProcessor': Qwen2VLTemplateProcessor,
+    'LlavaProcessor': LlavaTemplateProcessor(),
+    'Qwen2VLProcessor': Qwen2VLTemplateProcessor(),
     # 可继续添加更多的处理器类
 }
 
@@ -86,7 +86,7 @@ class VlmQaDataCollator:
         texts = []
         images = []
         for example in examples:
-            standard_example = self.template_process(example[0], example[1])
+            standard_example = self.template_process.process(example[0], example[1])
             text = self.processor.apply_chat_template(
                 standard_example, tokenize=False, add_generation_prompt=False
             )

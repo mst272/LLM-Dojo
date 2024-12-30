@@ -4,9 +4,10 @@
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
-LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习且方便魔改与实验**，与大多开源框架相同均是基于huggingface。
+LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框架等各种功能，使项目**易于学习且方便魔改与实验**，与大多开源框架相同均是基于huggingface。
 主要内容如下：
 - **SFT训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora、QLora、全参等训练，自动适配chat template。
+- **VLM多模态训练框架:** 支持多模态各种任务训练
 - **RLHF框架:** RLHF训练框架，持续更新，包括 知识蒸馏，DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
 - **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
 
@@ -23,11 +24,15 @@ LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各�
   - [训练数据格式说明](#训练数据格式说明)
   - [适配框架数据处理](#适配框架数据处理)
   - [Quick Start](#quick-start)
+- [多模态训练(VLM)](#多模态训练vlm)
+  - [已支持任务类型](#已支持任务类型)
+  - [数据格式](#数据格式)
 - [Tricks](#tricks)
   - [技术发文](#技术发文)
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-12-31] 支持多模态训练
 - [2024-11-06] 增加RLHF KTO训练方法
 - [2024-11-06] 重构RLHF，具体可见目录中RLHF训练框架部分
 - [2024-10-31] 添加auto_adapt参数控制是否自动适配template、更新优化DPO训练(迁移至RLHF目录下)
@@ -124,15 +129,38 @@ deepspeed --include localhost:6,7 main_train.py
 | Lora+Zero2 | Qwen（7B） | 26g  |
 | Lora+zero3 | Qwen（7B） | 16g  |
 
-## VLM SFT
+## 多模态训练(VLM)
+
+支持Deepspeed多卡 Lora、Qlora，冻结vision、冻结projector训练等
 
 ### 已支持任务类型
 
 - Visual Question Answering
 
 ### 数据格式
-- metadata.jsonl: 包含所有图片与文字信息，示例如下。
-- train/: 包含全部图片的文件夹
+
+**Visual Question Answering：**
+
+- metadata.jsonl: 包含所有图片与文字信息，示例如下：
+
+```json lines
+{"file_name":"Images/P0003_0004.png", "messages":[{"question":"how are you", "answer":"i am fine"}]}
+```
+
+其中file_name为train_data_path下的的图片路径，具体可如下：
+```
+train_data_path
+├─ metadata.jsonl
+└─ Images
+ └─ P0003_0004.png
+ └─ ...........png
+```
+
+### Quick Start
+
+```bash
+bash run_vlm_example.sh
+```
 
 ## Tricks
  所有相关的trciks及讲解都在llm_tricks文件夹下
