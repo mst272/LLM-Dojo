@@ -133,6 +133,10 @@ deepspeed --include localhost:6,7 main_train.py
 
 支持Deepspeed多卡 Lora、Qlora，冻结vision、冻结projector训练等
 
+### 已支持模型
+- [x] [Qwen-2-VL](https://github.com/QwenLM/Qwen2-VL)
+- [x] [Llava](https://github.com/haotian-liu/LLaVA)
+
 ### 已支持任务类型
 
 - Visual Question Answering
