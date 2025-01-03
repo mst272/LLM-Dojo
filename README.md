@@ -25,6 +25,7 @@ LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框�
   - [适配框架数据处理](#适配框架数据处理)
   - [Quick Start](#quick-start)
 - [多模态训练(VLM)](#多模态训练vlm)
+  - [已支持模型](#已支持模型)
   - [已支持任务类型](#已支持任务类型)
   - [数据格式](#数据格式)
 - [Tricks](#tricks)
@@ -39,10 +40,10 @@ LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框�
 - [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏](./rlhf/README.md)
 - [2024-10-14] 删除chat template模块，因为使用tokenizer的apply_chat_template即可
 - [2024-09-20] 增加evaluate模块，一个简洁的模型评测框架，目前仅支持Humaneval。可见[Evaluate](./evaluate/README.md)
-- [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
-- [2024-08-08] 支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
 <details> <summary>More news...</summary>
 
+- [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
+- [2024-08-08] 支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
 - [2024-08-04] 支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
 - [2024-07-19] RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
 - [2024-07-16] RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
@@ -161,6 +162,8 @@ train_data_path
 ```
 
 ### Quick Start
+
+通过freeze_vision、freeze_projector参数控制是否冻结vision、projector。
 
 ```bash
 bash run_vlm_example.sh
