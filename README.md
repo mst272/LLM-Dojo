@@ -33,7 +33,7 @@ LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框�
 - [致谢](#-致谢)
 
 ## 📖 Latest News
-- [2024-12-31] 支持多模态训练
+- [2024-12-31] 支持多模态训练，可见[多模态训练(VLM)](#多模态训练vlm)
 - [2024-11-06] 增加RLHF KTO训练方法
 - [2024-11-06] 重构RLHF，具体可见目录中RLHF训练框架部分
 - [2024-10-31] 添加auto_adapt参数控制是否自动适配template、更新优化DPO训练(迁移至RLHF目录下)
@@ -51,8 +51,6 @@ LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框�
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
 - [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
 - [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora、全量微调等训练！
-- [2024-05-13] 🚀 更新各大模型的Chat Template
-- [2024-05-06] 🚀 支持Qwen、Yi模型的Lora、Qlora、Dora微调
 - [2024-04-28] 🚀 更新dora微调原理示例、支持qwen模型微调
 </details>
 
@@ -193,7 +191,7 @@ bash run_vlm_example.sh
 
 
 ## 🤝 致谢！
-项目学习了优秀开源项目，感谢huggingface、流萤等及一些国内外小伙伴的开源项目。
+项目学习了优秀开源项目，感谢huggingface、流萤及一些国内外开源项目。
 
-LLM Dojo 期待你的加入。🪂 无论是提出问题（Issue）还是贡献代码（Pull Request），都是对项目的巨大支持。
+🪂 无论是提出问题（Issue）还是贡献代码（Pull Request），都是对项目的巨大支持。
 ***
