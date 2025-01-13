@@ -7,7 +7,7 @@ Tips: 图片完全由AI生成
 LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框架等各种功能，使项目**易于学习且方便魔改与实验**，与大多开源框架相同均是基于huggingface。
 主要内容如下：
 - **SFT训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora、QLora、全参等训练，自动适配chat template。
-- **VLM多模态训练框架:** 支持多模态各种任务训练
+- **VLM多模态训练框架:** 支持多模态各种任务训练(目前仅实现QA)，自动适配模型template。
 - **RLHF框架:** RLHF训练框架，持续更新，包括 知识蒸馏，DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
 - **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
 
