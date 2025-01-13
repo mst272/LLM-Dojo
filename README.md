@@ -4,9 +4,10 @@
 
 Tips: 图片完全由AI生成
 ## 🌟 项目简介
-LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各种功能，使项目**易于学习且方便魔改与实验**，与大多开源框架相同均是基于huggingface。
+LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框架等各种功能，使项目**易于学习且方便魔改与实验**，与大多开源框架相同均是基于huggingface。
 主要内容如下：
 - **SFT训练框架:** 简洁清晰的开源大模型训练框架，支持Deepspeed多卡、Lora、QLora、全参等训练，自动适配chat template。
+- **VLM多模态训练框架:** 支持多模态各种任务训练
 - **RLHF框架:** RLHF训练框架，持续更新，包括 知识蒸馏，DPO、RLOO、SimPO等各种强化学习方法，适配Deepspeed多卡及Lora，一张A100即可运行，详情可见: [RLHF](./rlhf/README.md)。
 - **最新LLM tricks详解:** 持续更新大模型领域最新tricks介绍，包括新论文方法的复现等，希望可以给你一些创新的想法，该模块主要集中在```llm_tricks```文件夹下。
 
@@ -23,21 +24,26 @@ LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各�
   - [训练数据格式说明](#训练数据格式说明)
   - [适配框架数据处理](#适配框架数据处理)
   - [Quick Start](#quick-start)
+- [多模态训练(VLM)](#多模态训练vlm)
+  - [已支持模型](#已支持模型)
+  - [已支持任务类型](#已支持任务类型)
+  - [数据格式](#数据格式)
 - [Tricks](#tricks)
   - [技术发文](#技术发文)
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2024-12-31] 支持多模态训练，可见[多模态训练(VLM)](#多模态训练vlm)
 - [2024-11-06] 增加RLHF KTO训练方法
 - [2024-11-06] 重构RLHF，具体可见目录中RLHF训练框架部分
 - [2024-10-31] 添加auto_adapt参数控制是否自动适配template、更新优化DPO训练(迁移至RLHF目录下)
 - [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏](./rlhf/README.md)
 - [2024-10-14] 删除chat template模块，因为使用tokenizer的apply_chat_template即可
 - [2024-09-20] 增加evaluate模块，一个简洁的模型评测框架，目前仅支持Humaneval。可见[Evaluate](./evaluate/README.md)
-- [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
-- [2024-08-08] 支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
 <details> <summary>More news...</summary>
 
+- [2024-08-27] 🤓增加从零实现自己编写DPO、SimPO代码，包括数据、loss、训练等部分。可见[DPO example](./llm_tricks/DPO_example/README.md)
+- [2024-08-08] 支持直接修改配置文件启动及命令行启动，增加框架适配数据处理代码。
 - [2024-08-04] 支持自适应单轮或多轮对话，无需指定单轮或多轮，训练根据数据自行判断单轮或多轮。且可自主设置system命令。可见[训练数据格式说明](#训练数据格式说明)
 - [2024-07-19] RLHF 强化学习框架新增CPO,SimPO，以及二者融合CPO-SimPO
 - [2024-07-16] RLHF 强化学习框架更新完成，支持deepspeed单卡/多卡 进行强化学习lora、qlora等训练，详细可见[RLHF](./rlhf/README.md)
@@ -45,8 +51,6 @@ LLM-Dojo使用简洁且易阅读的代码构建模型训练、RLHF框架等各�
 - [2024-06-5] 🤓llm_tricks 增加从头开始实现MOE
 - [2024-06-10] 🚀增加一步一步实现Transformer技术发文(包括代码等从零介绍)，可见 [技术发文](#技术发文)
 - [2024-05-18] 🤓支持Deepspeed单机多卡、单机单卡的Lora、Qlora、全量微调等训练！
-- [2024-05-13] 🚀 更新各大模型的Chat Template
-- [2024-05-06] 🚀 支持Qwen、Yi模型的Lora、Qlora、Dora微调
 - [2024-04-28] 🚀 更新dora微调原理示例、支持qwen模型微调
 </details>
 
@@ -62,7 +66,6 @@ RLHF训练框架，支持并持续更新 知识蒸馏、Reward、PPO、DPO、RLO
 **2、Knowledge Distillation (知识蒸馏)**
 
 **3、Rejected Sampling (拒绝采样) ：待更新**
-
 
 ## SFT训练框架
 
@@ -125,6 +128,45 @@ deepspeed --include localhost:6,7 main_train.py
 | Lora+Zero2 | Qwen（7B） | 26g  |
 | Lora+zero3 | Qwen（7B） | 16g  |
 
+## 多模态训练(VLM)
+
+支持Deepspeed多卡 Lora、Qlora，冻结vision、冻结projector训练等
+
+### 已支持模型
+- [x] [Qwen-2-VL](https://github.com/QwenLM/Qwen2-VL)
+- [x] [Llava](https://github.com/haotian-liu/LLaVA)
+
+### 已支持任务类型
+
+- Visual Question Answering
+
+### 数据格式
+
+**Visual Question Answering：**
+
+- metadata.jsonl: 包含所有图片与文字信息，示例如下：
+
+```json lines
+{"file_name":"Images/P0003_0004.png", "messages":[{"question":"how are you", "answer":"i am fine"}]}
+```
+
+其中file_name为train_data_path下的的图片路径，具体可如下：
+```
+train_data_path
+├─ metadata.jsonl
+└─ Images
+ └─ P0003_0004.png
+ └─ ...........png
+```
+
+### Quick Start
+
+通过freeze_vision、freeze_projector参数控制是否冻结vision、projector。
+
+```bash
+bash run_vlm_example.sh
+```
+
 ## Tricks
  所有相关的trciks及讲解都在llm_tricks文件夹下
 - [Dora代码讲解（llm_tricks/dora/READEME.md）](./llm_tricks/dora/READEME.md)
@@ -149,7 +191,7 @@ deepspeed --include localhost:6,7 main_train.py
 
 
 ## 🤝 致谢！
-项目学习了优秀开源项目，感谢huggingface、流萤等及一些国内外小伙伴的开源项目。
+项目学习了优秀开源项目，感谢huggingface、流萤及一些国内外开源项目。
 
-LLM Dojo 期待你的加入。🪂 无论是提出问题（Issue）还是贡献代码（Pull Request），都是对项目的巨大支持。
+🪂 无论是提出问题（Issue）还是贡献代码（Pull Request），都是对项目的巨大支持。
 ***
