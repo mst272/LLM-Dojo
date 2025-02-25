@@ -26,7 +26,7 @@ def initial_args():
         raise ValueError("Invalid train_args_path choice")
 
     if not os.path.exists(train_args.output_dir):
-        os.mkdir(train_args.output_dir)
+        os.makedirs(train_args.output_dir, exist_ok=True)
     set_seed(train_args.seed)
 
     assert sum([train_args.fp16, train_args.bf16]) == 1, "only one of fp16 and bf16 can be True"

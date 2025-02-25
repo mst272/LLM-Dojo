@@ -24,30 +24,53 @@ class MultiRoundDataProcess(Dataset):
         # 开始自动判断并适配chat template
         data = self.data_list[item]
         data = json.loads(data)
-        input_ids, target_mask = [], []
         message = data['message']
+
+        input_ids = []
+        target_mask = []
+
         if self.auto_adapt:
+            # 使用 apply_chat_template 生成格式化文本
             text = self.tokenizer.apply_chat_template(message, tokenize=False)
+            # 对整个文本进行分词
+            input_ids = self.tokenizer.encode(text, add_special_tokens=False)
+            # 初始化 target_mask 为全 0
+            target_mask = [0] * len(input_ids)
+            # 记录当前处理的 token 位置
+            current_position = 0
+            for conv in message:
+                if conv['role'] == 'assistant':
+                    # 对助手消息内容进行分词
+                    assistant_ids = self.tokenizer.encode(conv['content'], add_special_tokens=False)
+                    # 在 input_ids[current_position:] 中查找 assistant_ids 的起始位置
+                    position = find_sublist_start(input_ids[current_position:], assistant_ids)
+                    if position == -1:
+                        raise ValueError("Assistant message not found in input_ids")
+                    # 计算在整个 input_ids 中的实际位置
+                    actual_position = current_position + position
+                    assistant_len = len(assistant_ids)
+                    # 将 target_mask 中对应位置设置为 1
+                    target_mask[actual_position:actual_position + assistant_len] = [1] * assistant_len
+                    # 更新 current_position
+                    current_position = actual_position + assistant_len
         else:
-            # 注意数据需要user assistant顺序排列
-            text = ''.join(conv['content'] for i, conv in enumerate(message))
-        input_ids += self.tokenizer.encode(text, add_special_tokens=False)
-        target_mask += [0] * len(input_ids)
-        start_position = 0
-        for i, conv in enumerate(message):
-            if conv['role'] == 'assistant':
-                assistant_ids = self.tokenizer.encode(conv['content'], add_special_tokens=False)
-                position = find_sublist_start(input_ids[start_position:], assistant_ids)
-                assistant_len = len(assistant_ids)
-                target_mask[start_position + position:start_position + position + assistant_len] = [1] * assistant_len
-                start_position += position + assistant_len
-        # 判断一下输入和掩码长度是否相等
-        assert len(input_ids) == len(target_mask)
+            # 不使用 apply_chat_template，直接拼接内容
+            for conv in message:
+                conv_ids = self.tokenizer.encode(conv['content'], add_special_tokens=False)
+                input_ids.extend(conv_ids)
+                if conv['role'] == 'assistant':
+                    target_mask.extend([1] * len(conv_ids))
+                else:
+                    target_mask.extend([0] * len(conv_ids))
+
         # 对长度进行截断
         input_ids = input_ids[:self.max_length]
         target_mask = target_mask[:self.max_length]
         attention_mask = [1] * len(input_ids)
+
+        # 断言长度相等
         assert len(input_ids) == len(target_mask) == len(attention_mask)
+
         inputs = {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
@@ -152,7 +175,6 @@ def find_sublist_start(main_list, sub_list):
     """
     sub_len = len(sub_list)
     main_len = len(main_list)
-
     for i in range(main_len - sub_len + 1):
         if main_list[i:i + sub_len] == sub_list:
             return i
