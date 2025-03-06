@@ -183,12 +183,13 @@ def log_out(args, train_args, tokenizer, train_dataset, model, target_modules):
         logger.info(f'Loading model from base model: {args.model_name_or_path}')
         logger.info("Total model params: %.2fM" % (total / 1e6))
         logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
-        trainable_params, all_param = model.get_nb_trainable_parameters()
-        logger.info(
-            f"trainable params: {trainable_params:,d} || "
-            f"all params: {all_param:,d} || "
-            f"trainable%: {100 * trainable_params / all_param:.4f}"
-        )
+        if args.train_mode != 'full':
+            trainable_params, all_param = model.get_nb_trainable_parameters()
+            logger.info(
+                f"trainable params: {trainable_params:,d} || "
+                f"all params: {all_param:,d} || "
+                f"trainable%: {100 * trainable_params / all_param:.4f}"
+            )
         logger.info(f'Train model with {args.task_type} task')
         logger.info(f'Train model with {args.train_mode}')
         logger.info(f'LoRA target module names: {target_modules}')
