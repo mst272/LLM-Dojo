@@ -1,8 +1,27 @@
+from dataclasses import dataclass
+
 from transformers.integrations import WandbCallback
 import torch
 import wandb
 from tqdm.auto import tqdm
-from transformers import GenerationConfig
+from transformers import GenerationConfig, Trainer, TrainingArguments
+
+
+@dataclass
+class CheckpointInfo:
+    step: int
+    metric_value: float
+    path: str
+
+    def __lt__(self, other):
+        return self.metric_value < other.metric_value
+
+
+generate_config = GenerationConfig(
+    max_new_tokens=512,
+    temperature=0.1,
+    top_p=1
+)
 
 
 class LLMSampleCB(WandbCallback):
@@ -11,8 +30,7 @@ class LLMSampleCB(WandbCallback):
         self._log_model = log_model
         self.sample_dataset = test_dataset.select(range(num_samples))
         self.model, self.tokenizer = trainer.model, trainer.tokenizer
-        self.gen_config = GenerationConfig.from_pretrained(trainer.model.name_or_path,
-                                                           max_new_tokens=max_new_tokens)
+        self.gen_config = generate_config
 
     def generate(self, prompt):
         tokenized_prompt = self.tokenizer(prompt, return_tensors='pt')['input_ids'].cuda()
@@ -32,3 +50,39 @@ class LLMSampleCB(WandbCallback):
         super().on_evaluate(args, state, control, **kwargs)
         records_table = self.samples_table(self.sample_dataset)
         self._wandb.log({"sample_predictions": records_table})
+
+
+batch_size = 16
+gradient_accumulation_steps = 2
+num_train_epochs = 3
+
+training_args = TrainingArguments(
+    output_dir="./output/",
+    report_to="wandb",  # this tells the Trainer to log the metrics to W&B
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size // 2,
+    bf16=True,
+    learning_rate=2e-4,
+    lr_scheduler_type="cosine",
+    warmup_ratio=0.1,
+    gradient_accumulation_steps=gradient_accumulation_steps,
+    gradient_checkpointing=True,
+    evaluation_strategy="epoch",
+    num_train_epochs=num_train_epochs,
+    # logging strategies
+    logging_strategy="steps",
+    logging_steps=1,
+    save_strategy="epoch",  # saving is done at the end of each epoch
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    data_collator=data_collator
+)
+
+wandb_callback = LLMSampleCB(trainer, test_dataset, num_samples=10, max_new_tokens=256)
+trainer.add_callback(wandb_callback)
+
+trainer.train()
