@@ -1,16 +1,21 @@
 import heapq
 import shutil
 from dataclasses import dataclass
+from random import random
 from typing import List
-
+import re
 from transformers.integrations import WandbCallback
 import torch
+from datasets import load_dataset
 import wandb
 import os
 from tqdm.auto import tqdm
-from transformers import GenerationConfig, Trainer, TrainingArguments
+from transformers import GenerationConfig, Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
 from transformers.trainer_callback import ExportableState
 import evaluate
+from utils import MultiRoundDataProcess, SftDataCollator
+
+os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
 
 @dataclass
@@ -24,12 +29,41 @@ class CheckpointInfo:
 
 
 def compute_metrics(generations, labels):
+    """
+    generations: [[str][str]...]
+    labels: [str,str,...]
+    """
     metric = evaluate.load('./metrics/code_eval')
     pass_at_k, results = metric.compute(
         predictions=generations,
         references=labels,
         k=[1]  # 虽然这里指定 k=[1]，但 code_eval 通常默认会计算 pass@1，可以省略 k 参数，
     )
+    return pass_at_k
+
+
+def reason_post_process(code, index):
+    """
+
+    Args:
+        code (str): 输入字符串。
+        index (int/str): 当前字符串的序号 (索引)。
+
+    Returns:
+        str 或 int: 如果找到代码块，则返回代码块字符串；
+                     否则，返回输入的字符串序号 (index)。
+    """
+
+    # Look for code blocks
+    code_pattern = r'```(?:python|go|javascript|java)(.*?)```'
+    code_match = re.findall(code_pattern, code, re.DOTALL)
+
+    if code_match:
+        # If code block exists, return its content (excluding the ``` markers)
+        return code_match[-1].strip()
+    else:
+        # If no code block, return the solution content directly
+        return str(index)
 
 
 class LLMSampleCB(WandbCallback):
@@ -37,12 +71,11 @@ class LLMSampleCB(WandbCallback):
         super().__init__()
         generate_config = GenerationConfig(
             max_new_tokens=max_new_tokens,
-            temperature=0.1,
-            top_p=1
+            max_length=512
         )
-        self._log_model = log_model
+        # self._log_model = log_model
         self.sample_dataset = test_dataset.select(range(num_samples))
-        self.model, self.tokenizer = trainer.model, trainer.tokenizer
+        self.model, self.tokenizer = trainer.model, trainer.processing_class
         self.gen_config = generate_config
         self.trainer = trainer
         self.best_checkpoints: List[CheckpointInfo] = []
@@ -57,11 +90,17 @@ class LLMSampleCB(WandbCallback):
 
     def samples_table(self, examples):
         records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
+        generations = []
+        labels = []
         for example in tqdm(examples, leave=False):
-            prompt = example["text"]
+            prompt = '补全下面代码，将最终题目和答案返回在代码框中\n' + example['message'][0]['content']
+            label = example['message'][1]['content']
             generation = self.generate(prompt=prompt)
             records_table.add_data(prompt, generation, *list(self.gen_config.to_dict().values()))
-        score = 1
+            generation = reason_post_process(generation, 1)
+            generations.append([generation])
+            labels.append(label)
+        score = compute_metrics(labels=labels, generations=generations)
         return records_table, score
 
     def save_best_metric_model(self, args, state):
@@ -125,41 +164,73 @@ class LLMSampleCB(WandbCallback):
     def on_evaluate(self, args, state, control, **kwargs):
         super().on_evaluate(args, state, control, **kwargs)
         records_table, custom_score = self.samples_table(self.sample_dataset)
-        self._wandb.log({"sample_predictions": records_table})
-        self._wandb.log({"custom_score": custom_score, "step": state.global_step})
+        if self.trainer.is_world_process_zero():
+            self._wandb.log({"sample_predictions": records_table})
+            self._wandb.log({"custom_score": custom_score, "step": state.global_step})
+        self.update_best_checkpoints(args, state, custom_score)
 
 
-batch_size = 16
+batch_size = 2
 gradient_accumulation_steps = 2
-num_train_epochs = 3
+num_train_epochs = 2
 
 training_args = TrainingArguments(
     output_dir="./output/",
     report_to="wandb",  # this tells the Trainer to log the metrics to W&B
     per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=batch_size // 2,
+    per_device_eval_batch_size=10,
     bf16=True,
-    learning_rate=2e-4,
+    learning_rate=2e-5,
     lr_scheduler_type="cosine",
     warmup_ratio=0.1,
+    save_strategy="steps",
+    save_steps=20,
+    save_total_limit=2,
     gradient_accumulation_steps=gradient_accumulation_steps,
     gradient_checkpointing=True,
-    evaluation_strategy="epoch",
+    eval_strategy="steps",
     num_train_epochs=num_train_epochs,
     # logging strategies
     logging_strategy="steps",
     logging_steps=1,
-    save_strategy="epoch",  # saving is done at the end of each epoch
+    eval_steps=3,
+    remove_unused_columns=False,
+    deepspeed='ds_config_zero3.json'
 )
 
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=train_dataset,
-    data_collator=data_collator
-)
+if __name__ == "__main__":
+    model_name_or_path = 'Qwen2___5-Coder-7B-Instruct'
+    train_data_path = 'y_train.jsonl'
+    eval_data_path = '/eval_1.jsonl'
+    test_data_path = 'test.jsonl'
+    max_len = 1024
+    auto_adapt = False
 
-wandb_callback = LLMSampleCB(trainer, test_dataset, num_samples=10, max_new_tokens=256)
-trainer.add_callback(wandb_callback)
+    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(model_name_or_path, trust_remote_code=True)
 
-trainer.train()
+    train_dataset = MultiRoundDataProcess(train_data_path, tokenizer, max_len, auto_adapt)
+
+    test_dataset = load_dataset(path="json", data_files=test_data_path)
+    test_dataset = test_dataset['train']
+
+    eval_dataset = MultiRoundDataProcess(eval_data_path, tokenizer, max_len, auto_adapt)
+    data_collator = SftDataCollator(tokenizer, max_len)
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        data_collator=data_collator,
+        processing_class=tokenizer
+    )
+
+    # if os.environ.get('LOCAL_RANK', '0') == '0':  # 只在主进程中初始化
+    #     wandb.init(project="huggingface")
+    # wandb.init(project="huggingface")
+
+    wandb_callback = LLMSampleCB(trainer, test_dataset, num_samples=4, max_new_tokens=256)
+    trainer.add_callback(wandb_callback)
+
+    trainer.train()
