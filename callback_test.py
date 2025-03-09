@@ -2,22 +2,33 @@ import heapq
 import shutil
 from dataclasses import dataclass
 from random import random
-from typing import List
+from typing import List, Optional
 import re
+
+from accelerate.utils import gather_object
 from transformers.integrations import WandbCallback
 import torch
 from datasets import load_dataset
 import wandb
 import os
+from trl.models.utils import unwrap_model_for_generation
+from accelerate import Accelerator
 from tqdm.auto import tqdm
 from transformers import GenerationConfig, Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
 from transformers.trainer_callback import ExportableState
 import evaluate
 from utils import MultiRoundDataProcess, SftDataCollator
+from transformers import (
+    GenerationConfig,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+    Trainer,
+    TrainingArguments,
+)
 
 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
-
+# deepspeed需要==0.15.0
 @dataclass
 class CheckpointInfo:
     step: int
@@ -66,6 +77,45 @@ def reason_post_process(code, index):
         return str(index)
 
 
+def _generate_completions(
+        prompts: list[str],
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizerBase,
+        accelerator: Accelerator,
+        generation_config: Optional[GenerationConfig],
+        batch_size: int = 1,
+) -> list[str]:
+    """
+    Generates completions for a list of pre-formatted prompts from the given model.
+
+    Args:
+        prompts (list[str]): A list of input prompts for which completions are to be generated.
+        model (PreTrainedModel): The pre-trained model to be used for generation.
+        tokenizer (PreTrainedTokenizerBase): The tokenizer to be used for encoding and decoding.
+        accelerator (Accelerator): The accelerator to be used for model execution.
+        generation_config (GenerationConfig): Configuration for text generation.
+        batch_size (int, optional): The number of prompts to process in each batch. Default is 1.
+
+    Returns:
+        list[str]: A list of generated text completions corresponding to the input prompts.
+    """
+    completions = []
+    with unwrap_model_for_generation(model, accelerator) as unwrapped_model:
+        for idx in range(0, len(prompts), batch_size):
+            batch = prompts[idx: idx + batch_size]
+            tokenized_batch = tokenizer(batch, return_tensors="pt", padding=True, truncation=True).to(model.device)
+            generations = unwrapped_model.generate(
+                **tokenized_batch,
+                generation_config=generation_config,
+            )
+            for prompt, generation in zip(tokenized_batch.input_ids, generations):
+                # Remove prompt from generation
+                generation = generation[len(prompt):]
+                completion = tokenizer.decode(generation, skip_special_tokens=True)
+                completions.append(completion)
+    return completions
+
+
 class LLMSampleCB(WandbCallback):
     def __init__(self, trainer, test_dataset, num_samples=10, max_new_tokens=256, log_model="checkpoint"):
         super().__init__()
@@ -75,7 +125,7 @@ class LLMSampleCB(WandbCallback):
         )
         # self._log_model = log_model
         self.sample_dataset = test_dataset.select(range(num_samples))
-        self.model, self.tokenizer = trainer.model, trainer.processing_class
+        self.model, self.tokenizer = trainer.model_wrapped, trainer.processing_class
         self.gen_config = generate_config
         self.trainer = trainer
         self.best_checkpoints: List[CheckpointInfo] = []
@@ -100,6 +150,33 @@ class LLMSampleCB(WandbCallback):
             generation = reason_post_process(generation, 1)
             generations.append([generation])
             labels.append(label)
+        score = compute_metrics(labels=labels, generations=generations)
+        return records_table, score
+
+    def samples_table1(self, examples):
+        records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
+        # self.tokenizer.padding_side = "left"
+        accelerator = self.trainer.accelerator
+        labels = [example['message'][1]['content'] for example in examples]
+        model = self.trainer.model_wrapped
+        with accelerator.split_between_processes(examples['message']) as prompts:
+            q = []
+            for lis in prompts:
+                q.append('补全下面代码，将最终题目和答案返回在代码框中\n' + lis[0]['content'])
+            # prompts = ['补全下面代码，将最终题目和答案返回在代码框中\n' + prompt for prompt in prompts]
+            prompts = q
+            completions = _generate_completions(
+                prompts,
+                model=model,
+                tokenizer=self.tokenizer,
+                accelerator=accelerator,
+                generation_config=self.gen_config,
+                batch_size=1,
+                # batch_size=args.per_device_eval_batch_size,
+            )
+            completions = gather_object(completions)
+            prompts = gather_object(prompts)
+        generations = [[c] for c in completions]
         score = compute_metrics(labels=labels, generations=generations)
         return records_table, score
 
@@ -165,9 +242,11 @@ class LLMSampleCB(WandbCallback):
         super().on_evaluate(args, state, control, **kwargs)
         records_table, custom_score = self.samples_table(self.sample_dataset)
         if self.trainer.is_world_process_zero():
+            # self.trainer.log({"sample_predictions": records_table})  # trainer中打印table会有bug
+            # self.trainer.log({"custom_score": custom_score, "step": state.global_step})
             self._wandb.log({"sample_predictions": records_table})
             self._wandb.log({"custom_score": custom_score, "step": state.global_step})
-        self.update_best_checkpoints(args, state, custom_score)
+            self.update_best_checkpoints(args, state, custom_score)
 
 
 batch_size = 2
