@@ -1,32 +1,17 @@
-import heapq
-import time
-import shutil
-import itertools
-from dataclasses import dataclass
-from random import random
-from typing import List, Optional
+from typing import Optional
 import re
-from contextlib import contextmanager
-from transformers.integrations import WandbCallback
-import torch
-from datasets import load_dataset
-import wandb
-from accelerate.utils import gather_object
-import os
-import deepspeed
 from trl.models.utils import unwrap_model_for_generation
 from accelerate import Accelerator
 from transformers import (
-    GenerationConfig,
     PreTrainedModel,
     PreTrainedTokenizerBase,
-    Trainer,
-    TrainingArguments,
+    GenerationConfig
 )
 from tqdm.auto import tqdm
-from transformers import GenerationConfig, Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
-from transformers.trainer_callback import ExportableState
-import evaluate
+
+
+def _generate_completions_vllm():
+    pass
 
 
 def _generate_completions(
@@ -66,7 +51,6 @@ def _generate_completions(
         for idx in range(0, len(prompts), batch_size):
             batch = prompts[idx: idx + batch_size]
             tokenized_batch = tokenizer(batch, return_tensors="pt", padding=True, truncation=True).to(model.device)
-            print("Input shape:", tokenized_batch.input_ids.shape)
             generations = unwrapped_model.generate(
                 **tokenized_batch,
                 generation_config=generation_config,
@@ -81,3 +65,27 @@ def _generate_completions(
             progress_bar.update(1)
         progress_bar.close()
     return completions
+
+
+def reason_post_process(code, index):
+    """
+
+    Args:
+        code (str): 输入字符串。
+        index (int/str): 当前字符串的序号 (索引)。
+
+    Returns:
+        str 或 int: 如果找到代码块，则返回代码块字符串；
+                     否则，返回输入的字符串序号 (index)。
+    """
+
+    # Look for code blocks
+    code_pattern = r'```(?:python|go|javascript|java|bash|js|cpp|cs|php)(.*?)```'
+    code_match = re.findall(code_pattern, code, re.DOTALL)
+
+    if code_match:
+        # If code block exists, return its content (excluding the ``` markers)
+        return code_match[-1].strip()
+    else:
+        # If no code block, return the solution content directly
+        return str(index)

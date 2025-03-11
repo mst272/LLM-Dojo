@@ -23,7 +23,7 @@ class CodeEvalMetric(BaseMetric):
             references: List of reference code strings
 
         Returns:
-            Dictionary containing computed metrics
+            float pass@1
         """
         pass_at_k, results = self.metric.compute(
             predictions=predictions,
