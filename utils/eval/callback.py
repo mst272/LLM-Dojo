@@ -4,7 +4,7 @@ import shutil
 from dataclasses import dataclass
 import time
 from typing import List, Optional
-
+from accelerate.utils import gather_object
 import pandas as pd
 
 from eval_utils import _generate_completions, reason_post_process
@@ -65,6 +65,7 @@ class EvaluationCallback(TrainerCallback):
             per_device_test_batch_size: int = 1,
             higher_better: bool = True,
             start_update_best_checkpoints: int = 0,
+            gather_deepspeed3_params: bool = True
 
     ):
         self.gen_config = generation_config
@@ -78,6 +79,7 @@ class EvaluationCallback(TrainerCallback):
         self.freq = freq
         self.metric = metric
         self.start_update_best_checkpoints = start_update_best_checkpoints
+        self.gather_deepspeed3_params = gather_deepspeed3_params
 
         if self.metric is None:
             raise ValueError("You must provide a metric[CodeEvalMetric]")
@@ -87,9 +89,72 @@ class EvaluationCallback(TrainerCallback):
         else:
             self.sample_dataset = test_dataset
 
-    def samples_generate_split_between_processes(self, examples):
-        pass
+    def samples_generate_split_between_processes(self, examples, steps):
+        """
+        if model very large, maybe OOM
+        """
+        labels = [example['message'][1]['content'] for example in self.sample_dataset]
+        tokenizer = self.trainer.processing_class
+        tokenizer.padding_side = "left"
+        accelerator = self.trainer.accelerator
+        model = self.trainer.model_wrapped
+        start_time = time.time()
+        with accelerator.split_between_processes(self.sample_dataset['message']) as prompts_split:
+            prompts = []
+            for lis in prompts_split:
+                prompts.append('补全下面代码，将最终题目和答案返回在代码框中\n' + lis[0]['content'])
+            completions = _generate_completions(
+                prompts,
+                model=model,
+                tokenizer=tokenizer,
+                accelerator=accelerator,
+                generation_config=self.gen_config,
+                batch_size=self.batch_size,
+                gather_deepspeed3_params=self.gather_deepspeed3_params
+            )
+            completions = gather_object(completions)
+            prompts = gather_object(prompts)
+        end_time = time.time()  # 记录 _generate_completions 结束时间
+        generation_time = end_time - start_time  # 计算生成耗时
 
+        generations = [[reason_post_process(c, i)] for i, c in enumerate(completions)]
+        print(f"Process {accelerator.process_index}: Generation time: {generation_time:.4f} seconds")
+
+        if len(self.sample_dataset) < accelerator.num_processes:
+            generations = generations[:len(labels)]
+        # 处理输出表格数据
+        if self.trainer.accelerator.is_main_process:
+            global_step = [str(steps)] * len(prompts)
+            config_keys = list(self.gen_config.to_dict().keys())
+            config_values = list(self.gen_config.to_dict().values())
+            data = [[global_step[i], prompts[i], completions[i]] + config_values for i in range(len(prompts))]
+            self.table.extend(data)
+            table = pd.DataFrame(columns=["step", "prompt", "completion"] + config_keys, data=self.table)
+            wandb.log({"completions": table})
+
+        score = self.metric.compute(references=labels, predictions=generations)
+        return score
+
+    # def generate(self, prompt):
+    #     tokenized_prompt = self.tokenizer(prompt, return_tensors='pt')['input_ids'].cuda()
+    #     with torch.inference_mode():
+    #         output = self.model.generate(inputs=tokenized_prompt, generation_config=self.gen_config)
+    #     return self.tokenizer.decode(output[0][len(tokenized_prompt[0]):], skip_special_tokens=True)
+
+    # def samples_table(self, examples):
+    #     records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
+    #     generations = []
+    #     labels = []
+    #     for example in tqdm(examples, leave=False):
+    #         prompt = '补全下面代码，将最终题目和答案返回在代码框中\n' + example['message'][0]['content']
+    #         label = example['message'][1]['content']
+    #         generation = self.generate(prompt=prompt)
+    #         records_table.add_data(prompt, generation, *list(self.gen_config.to_dict().values()))
+    #         generation = reason_post_process(generation, 1)
+    #         generations.append([generation])
+    #         labels.append(label)
+    #     score = compute_metrics(labels=labels, generations=generations)
+    #     return records_table, score
     def samples_generate(self, examples, steps):
         # records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
         labels = [example['message'][1]['content'] for example in examples]
@@ -111,7 +176,8 @@ class EvaluationCallback(TrainerCallback):
             tokenizer=tokenizer,
             accelerator=accelerator,
             generation_config=self.gen_config,
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
+            gather_deepspeed3_params=self.gather_deepspeed3_params
         )
         end_time = time.time()  # 记录 _generate_completions 结束时间
         generation_time = end_time - start_time  # 计算生成耗时
@@ -143,7 +209,6 @@ class EvaluationCallback(TrainerCallback):
         output_dir = os.path.join(args.output_dir, 'best_model', checkpoint_folder)
 
         self.trainer.save_model(output_dir)
-        print('trainer.save_model')
 
         if not args.save_only_model:
             # Save optimizer and scheduler
@@ -219,6 +284,7 @@ class EvaluationCallback(TrainerCallback):
         custom_score = self.samples_generate(self.sample_dataset, state.global_step)
         self.trainer.log({"custom_score": custom_score, "step": state.global_step})
 
+        self.update_best_checkpoints(args, state, custom_score)
         # Save the last logged step, so we don't log the same completions multiple times
         self._last_logged_step = state.global_step
 

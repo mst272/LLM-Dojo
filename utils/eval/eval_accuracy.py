@@ -14,7 +14,7 @@ class CodeEvalMetric(BaseMetric):
     def __init__(self, metric_path: str = './metrics/code_eval'):
         self.metric = evaluate.load(metric_path)
 
-    def compute(self, predictions: List[List[str]], references: List[str]) -> Dict[str, float]:
+    def compute(self, predictions: List[List[str]], references: List[str]) -> float:
         """
         Compute code evaluation metrics
 
@@ -30,4 +30,4 @@ class CodeEvalMetric(BaseMetric):
             references=references,
             k=[1]
         )
-        return {"pass@1": float(pass_at_k["pass@1"])}
+        return float(pass_at_k["pass@1"])

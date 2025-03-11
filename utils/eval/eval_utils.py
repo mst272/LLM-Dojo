@@ -21,6 +21,7 @@ def _generate_completions(
         accelerator: Accelerator,
         generation_config: Optional[GenerationConfig],
         batch_size: int = 1,
+        gather_deepspeed3_params: bool = True,
 ) -> list[str]:
     """
     Generates completions for a list of pre-formatted prompts from the given model.
@@ -32,12 +33,13 @@ def _generate_completions(
         accelerator (Accelerator): The accelerator to be used for model execution.
         generation_config (GenerationConfig): Configuration for text generation.
         batch_size (int, optional): The number of prompts to process in each batch. Default is 1.
+        gather_deepspeed3_params: bool = True: if OOM, False it.
 
     Returns:
         list[str]: A list of generated text completions corresponding to the input prompts.
     """
     completions = []
-    with unwrap_model_for_generation(model, accelerator) as unwrapped_model:
+    with unwrap_model_for_generation(model, accelerator, gather_deepspeed3_params=gather_deepspeed3_params) as unwrapped_model:
         # 创建分布式安全的进度条（仅在主进程显示）
         total_batches = len(prompts) // batch_size + (1 if len(prompts) % batch_size != 0 else 0)
 
