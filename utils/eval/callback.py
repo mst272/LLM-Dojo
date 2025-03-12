@@ -4,8 +4,11 @@ import shutil
 from dataclasses import dataclass
 import time
 from typing import List, Optional
+
+import torch
 from accelerate.utils import gather_object
 import pandas as pd
+from tqdm.auto import tqdm
 
 from eval_utils import _generate_completions, reason_post_process
 import wandb
@@ -136,11 +139,11 @@ class EvaluationCallback(TrainerCallback):
         return score
 
     # def generate(self, prompt):
-    #     tokenized_prompt = self.tokenizer(prompt, return_tensors='pt')['input_ids'].cuda()
+    #     tokenized_prompt = self.trainer.processing_class(prompt, return_tensors='pt')['input_ids'].cuda()
     #     with torch.inference_mode():
-    #         output = self.model.generate(inputs=tokenized_prompt, generation_config=self.gen_config)
-    #     return self.tokenizer.decode(output[0][len(tokenized_prompt[0]):], skip_special_tokens=True)
-
+    #         output = self.trainer.model.generate(inputs=tokenized_prompt, generation_config=self.gen_config)
+    #     return self.trainer.processing_class.decode(output[0][len(tokenized_prompt[0]):], skip_special_tokens=True)
+    #
     # def samples_table(self, examples):
     #     records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
     #     generations = []
@@ -153,8 +156,10 @@ class EvaluationCallback(TrainerCallback):
     #         generation = reason_post_process(generation, 1)
     #         generations.append([generation])
     #         labels.append(label)
-    #     score = compute_metrics(labels=labels, generations=generations)
-    #     return records_table, score
+    #     if self.trainer.accelerator.is_main_process:
+    #         wandb.log({"completions": records_table})
+    #     score = self.metric.compute(references=labels, predictions=generations)
+    #     return score
     def samples_generate(self, examples, steps):
         # records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
         labels = [example['message'][1]['content'] for example in examples]
