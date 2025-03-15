@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from loguru import logger
 from pathlib import Path
 import pandas as pd
+import os
 from typing import Dict, List, Tuple
 
 
@@ -11,14 +12,55 @@ class MultiRoundDataProcess(Dataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
         # logger.info(f'Loading data: {file}')
-        with open(file, 'r', encoding='utf8') as f:
-            data_list = f.readlines()
-        # logger.info(f"There are {len(data_list)} data in dataset")
-        self.data_list = data_list
+        # with open(file, 'r', encoding='utf8') as f:
+        #     data_list = f.readlines()
+        # # logger.info(f"There are {len(data_list)} data in dataset")
+        # self.data_list = data_list
+        self.data_list = []
         self.auto_adapt = auto_adapt
+
+        # 检查路径是否存在
+        if not os.path.exists(file):
+            raise ValueError(f"路径 '{file}' 不存在")
+
+        # 判断输入路径是文件还是目录
+        if os.path.isfile(file):
+            # 如果是单个文件，直接读取
+            if not file.endswith('.jsonl'):
+                raise ValueError(f"文件 '{file}' 不是JSONL文件")
+            self._read_single_file(file)
+        else:
+            # 如果是目录，读取所有JSONL文件
+            self._read_directory(file)
+        if not self.data_list:
+            raise ValueError("没有读取到任何数据")
 
     def __len__(self):
         return len(self.data_list)
+
+    def _read_single_file(self, file_path):
+        """读取单个JSONL文件"""
+        try:
+            with open(file_path, 'r', encoding='utf8') as f:
+                self.data_list.extend(f.readlines())
+        except Exception as e:
+            # print(f"读取文件 {file_path} 时发生错误: {str(e)}")
+            raise
+
+    def _read_directory(self, dir_path):
+        """读取目录中的所有JSONL文件"""
+        jsonl_files = [f for f in os.listdir(dir_path) if f.endswith('.jsonl')]
+
+        if not jsonl_files:
+            raise ValueError(f"目录 '{dir_path}' 中没有找到JSONL文件")
+
+        for file_name in jsonl_files:
+            file_path = os.path.join(dir_path, file_name)
+            try:
+                self._read_single_file(file_path)
+            except Exception as e:
+                # print(f"处理文件 {file_path} 时发生错误: {str(e)}")
+                continue
 
     def __getitem__(self, item):
         # 开始自动判断并适配chat template
