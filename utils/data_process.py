@@ -51,8 +51,16 @@ class MultiRoundDataProcess(Dataset):
                     assistant_len = len(assistant_ids)
                     # 将 target_mask 中对应位置设置为 1
                     target_mask[actual_position:actual_position + assistant_len] = [1] * assistant_len
-                    # 更新 current_position
-                    current_position = actual_position + assistant_len
+                    # 找到助手消息后的 EOS token 位置
+                    eos_position = actual_position + assistant_len
+                    if eos_position < len(input_ids):
+                        # 检查下一个token是否为EOS token
+                        next_token = input_ids[eos_position]
+                        if next_token == self.tokenizer.eos_token_id:
+                            # 将EOS token的target mask设为1
+                            target_mask[eos_position] = 1
+                    # 更新 current_position 到EOS token之后
+                    current_position = eos_position + 1
         else:
             # 不使用 apply_chat_template，直接拼接内容
             for conv in message:
