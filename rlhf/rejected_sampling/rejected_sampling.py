@@ -1,6 +1,8 @@
+import json
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 import os
+import torch.multiprocessing as mp
 
 
 @dataclass
@@ -16,9 +18,24 @@ class Args:
     skill: str = "chat"
     include_reference_completion_for_rejection_sampling: bool = True
 
-    # upload config
-    hf_repo_id: str = os.path.basename(__file__)[: -len(".py")]
-    hf_repo_id_scores: str = os.path.basename(__file__)[: -len(".py")] + "_scores"
-    push_to_hub: bool = False
-    hf_entity: Optional[str] = None
-    add_timestamp: bool = True
+
+def save_jsonl(save_filename: str, table: Dict[str, List]):
+    first_key = list(table.keys())[0]
+    dirname = os.path.dirname(save_filename)
+    if dirname:
+        os.makedirs(os.path.dirname(save_filename), exist_ok=True)
+    with open(save_filename, "w") as outfile:
+        for i in range(len(table[first_key])):
+            json.dump({key: table[key][i] for key in table}, outfile)
+            outfile.write("\n")
+
+
+
+
+
+
+
+
+
+def main(args:Args):
+    mp.set_start_method("spawn", force=True)
