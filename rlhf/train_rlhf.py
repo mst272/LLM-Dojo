@@ -15,7 +15,7 @@ import torch
 from accelerate import PartialState
 from trl import DPOTrainer, CPOTrainer, PPOTrainer, RLOOTrainer, RewardTrainer, KTOTrainer
 from common_args import CommonArgs
-from utils.utils import find_all_linear_names
+from utils.util import find_all_linear_names
 from loguru import logger
 from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_chat_template
 
