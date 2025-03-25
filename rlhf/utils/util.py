@@ -4,6 +4,8 @@ import sys
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple, Union
 import copy
+
+import torch
 import torch.nn as nn
 from transformers import HfArgumentParser
 from transformers.hf_argparser import DataClassType
@@ -84,6 +86,146 @@ class ArgumentParserPlus(HfArgumentParser):
         return output
 
 
+def first_true_indices(bools: torch.Tensor, dtype=torch.long) -> torch.Tensor:
+    """
+    Finds the index of the first `True` value in each row of a boolean tensor. If no `True` value exists in a row,
+    it returns the length of the row.
+
+    Args:
+        bools (torch.Tensor): A boolean tensor of shape (batch_size, sequence_length), where `True` values indicate
+                              the positions of interest.
+        dtype (torch.dtype): The data type to use for the output indices (default is torch.long).
+
+    Returns:
+        torch.Tensor: A tensor of shape (batch_size,) containing the index of the first `True` value in each row.
+                      If a row has no `True` value, the index will be the length of the row.
+    """
+
+    # Get the length of each row (i.e., the number of columns in the last dimension)
+    # row_len is a scalar representing the length of each sequence (sequence_length)
+    row_len = bools.size(-1)
+
+    # Calculate the index positions for the first `True` in each row
+    # ~bools: Invert the boolean values (True becomes False and vice versa)
+    # ~bools.type(dtype): Convert the inverted boolean tensor to the specified dtype (0 for True, 1 for False)
+    # row_len * (~bools).type(dtype): For `False` values, this will give `row_len`, for `True` values it gives 0.
+    # torch.arange(row_len, dtype=dtype, device=bools.device): Generates a tensor with values [0, 1, 2, ..., row_len-1]
+    # for each row. Shape: (sequence_length,)
+    # zero_or_index: Shape (batch_size, sequence_length). This tensor contains the indices for `True` values and `row_len`
+    # for `False` values.
+    zero_or_index = row_len * (~bools).type(dtype) + torch.arange(row_len, dtype=dtype, device=bools.device)
+
+    # Return the minimum value in each row (i.e., the first `True` index or `row_len` if none exist)
+    # torch.min(zero_or_index, dim=-1).values: This returns the minimum value in each row, which corresponds to the first
+    # `True` value's index or `row_len` if there is no `True` in that row.
+    # The returned tensor has shape (batch_size,)
+    return torch.min(zero_or_index, dim=-1).values
+
+
+def get_reward(
+        model: torch.nn.Module, query_responses: torch.Tensor, pad_token_id: int, context_length: int
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    This function computes reward scores for a batch of query responses based on a pre-trained reward model.
+
+    Args:
+        model (torch.nn.Module): The pre-trained reward model.
+        query_responses (torch.Tensor): Tensor containing the tokenized responses for which to compute rewards.
+            Shape: (batch_size, sequence_length)
+        pad_token_id (int): The ID used for padding tokens in the tokenized sequences.
+        context_length (int): The length of the prompt or context preceding the completions.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: A tuple containing:
+            - reward_logits: The logits output from the model for all tokens in the sequences.
+              Shape: (batch_size, sequence_length)
+            - final_scores: The final reward scores, one for each sequence, after adjusting for sequence lengths.
+              Shape: (batch_size,)
+            - sequence_lengths: The lengths of each sequence (excluding padding).
+              Shape: (batch_size,)
+
+    For example:
+        query_responses = torch.tensor([
+            [token0, token1, token2, token3, 0, 0],
+            [token0, token1, token4, 0, 0, 0]
+            ])  # 形状: (2, 6)
+
+        attention_mask = query_responses != 0
+            # [[1, 1, 1, 1, 0, 0],
+            #  [1, 1, 1, 0, 0, 0]]
+
+        position_ids = attention_mask.cumsum(1) - attention_mask.long()
+            # [[0, 1, 2, 3, 4, 4],
+            #  [0, 1, 2, 3, 3, 3]]
+
+        input_ids = torch.masked_fill(query_responses, ~attention_mask, 0)
+            # 在此例中，填充 token 已为 0，无变化
+
+        reward_logits = torch.tensor([
+            [[r0_0], [r0_1], [r0_2], [r0_3], [r0_4], [r0_5]],
+            [[r1_0], [r1_1], [r1_2], [r1_3], [r1_4], [r1_5]]
+        ])  # 形状: (2, 6, 1)
+
+        query_responses[:, 2:] == 0
+            # [[False, False, True, True],
+            #  [False, True, True, True]]
+
+        sequence_lengths = first_true_indices(...) - 1 + 2
+            # first_true_indices = [2, 1]
+            # sequence_lengths = [2-1+2, 1-1+2] = [3, 2]
+
+        final_scores = reward_logits[torch.arange(2), [3, 2]].squeeze(-1)
+            # = reward_logits[[0,1], [3, 2]]  --->   reward_logits[0, 3, :],  reward_logits[1, 2, :]
+            # = [r0_3, r1_2]，形状: (2,)
+    """
+
+    # Create an attention mask where tokens that are not padding have a value of 1, and padding tokens have a value of 0
+    # Shape: (batch_size, sequence_length)
+    attention_mask = query_responses != pad_token_id
+
+    # Calculate position IDs for each token, considering the cumulative sum of the attention mask (to exclude padding)
+    # Shape: (batch_size, sequence_length)
+    position_ids = attention_mask.cumsum(1) - attention_mask.long()  # exclusive cumsum
+
+    # Access the LM backbone from the reward model using its base model prefix
+    lm_backbone = getattr(model, model.base_model_prefix)
+
+    # Replace padding tokens with zeros in the input IDs (so padding tokens won't affect the model's processing)
+    # Shape: (batch_size, sequence_length)
+    input_ids = torch.masked_fill(query_responses, ~attention_mask, 0)
+    output = lm_backbone(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        position_ids=position_ids,
+        return_dict=True,
+        output_hidden_states=True,
+        use_cache=False,  # otherwise mistral-based RM would error out
+    )
+    reward_logits = model.score(output.hidden_states[-1])  # (batch_size, sequence_length)
+
+    # Calculate the length of each sequence by finding the first occurrence of a padding token after the context
+    # sequence_lengths shape: (batch_size,)
+    sequence_lengths = first_true_indices(query_responses[:, context_length:] == pad_token_id) - 1 + context_length
+    assert (
+            reward_logits.shape[-1] == 1
+    ), "Reward model should output a single scalar per token. Check if you added `num_labels=1` when doing `AutoModelForSequenceClassification.from_pretrained(...)`."
+    # https://github.com/huggingface/transformers/blob/dc68a39c8111217683bf49a4912d0c9018bab33d/src/transformers/models/gpt2/modeling_gpt2.py#L1454
+
+    # Return the reward logits for all tokens, the final reward scores for each sequence, and the sequence lengths
+    return (
+        # reward_logits shape: (batch_size, sequence_length)
+        reward_logits,
+        # final_scores shape: (batch_size,)
+        reward_logits[
+            torch.arange(reward_logits.size(0), device=reward_logits.device),
+            sequence_lengths,
+        ].squeeze(
+            -1
+        ),  # Shape: (batch_size,)
+        sequence_lengths,
+    )
+
+
 def is_right_apply_chat(tokenizer, prompt: List[Dict[str, str]], assistant_content: List[Dict[str, str]]) -> bool:
     """
     Checks if the assistant's content is correctly applied to the prompt in a chat template.
@@ -149,76 +291,3 @@ def find_all_linear_names(model):
         lora_module_names.remove('lm_head')
     lora_module_names = list(lora_module_names)
     return lora_module_names
-# def split_data(raw_datasets, eval_samples):
-#     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-#     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
-#     return train_dataset, eval_dataset
-
-
-# def load_data_prompt(tokenizer, train_data_path, eval_samples):
-#     raw_datasets = pd.read_json(train_data_path, lines=True)
-#     for i in range(len(raw_datasets)):
-#         pro = raw_datasets['prompt'][i]
-#         res = tokenizer.apply_chat_template(pro, tokenize=False)
-#         raw_datasets.loc[i, 'prompt'] = res
-#     raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
-#
-#     def tokenize(element):
-#         outputs = tokenizer(
-#             element['prompt'],
-#             padding=False,
-#         )
-#         return {"input_ids": outputs["input_ids"]}
-#
-#     raw_datasets = raw_datasets.map(
-#         tokenize,
-#         remove_columns=raw_datasets.column_names,
-#         batched=True,
-#         num_proc=multiprocessing.cpu_count(),  # multiprocessing.cpu_count(),
-#         load_from_cache_file=False,
-#     )
-#     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-#     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
-#     return train_dataset, eval_dataset
-
-
-# def test_tokenizer_chat_template(tokenizer, prompt, chosen):
-#     test_prompt = tokenizer.apply_chat_template(prompt, tokenize=False)
-#     test_chosen = tokenizer.apply_chat_template(chosen, tokenize=False)
-#     one_conversation = copy.deepcopy(prompt)
-#     one_conversation.append(chosen[-1])
-#     one_conversation = tokenizer.apply_chat_template(one_conversation, tokenize=False)
-#     if one_conversation == test_prompt + test_chosen:
-#         return True
-#     else:
-#         logger.warning("Chat template is not right, Start automatic repair!")
-#         return False
-#
-
-# def load_data_all(tokenizer, train_data_path, eval_samples):
-#     raw_datasets = pd.read_json(train_data_path, lines=True)
-#     prompt, chosen = raw_datasets['prompt'][0], raw_datasets['chosen'][0]
-#     if not test_tokenizer_chat_template(tokenizer, prompt, chosen):
-#         for i in range(len(raw_datasets)):
-#             conversation_chosen = raw_datasets['prompt'][i][:]
-#             conversation_rejected = raw_datasets['prompt'][i][:]
-#             conversation_chosen.append(raw_datasets['chosen'][i][-1])
-#             conversation_rejected.append(raw_datasets['rejected'][i][-1])
-#             conversation_chosen = tokenizer.apply_chat_template(conversation_chosen, tokenize=False)
-#             conversation_rejected = tokenizer.apply_chat_template(conversation_rejected, tokenize=False)
-#             start_position = conversation_chosen.find(raw_datasets['chosen'][i][-1]['content'])
-#             raw_datasets.loc[i, 'prompt'] = conversation_chosen[:start_position]
-#             raw_datasets.loc[i, 'chosen'] = conversation_chosen[start_position:]
-#             raw_datasets.loc[i, 'rejected'] = conversation_rejected[start_position:]
-#     else:
-#         for i in range(len(raw_datasets)):
-#             raw_datasets.loc[i, 'prompt'] = tokenizer.apply_chat_template(raw_datasets['prompt'][i], tokenize=False)
-#             raw_datasets.loc[i, 'chosen'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
-#                 raw_datasets['chosen'][i], tokenize=False)
-#             raw_datasets.loc[i, 'rejected'] = raw_datasets.loc[i, 'prompt'] + tokenizer.apply_chat_template(
-#                 raw_datasets['rejected'][i], tokenize=False)
-#     raw_datasets = Dataset.from_pandas(raw_datasets, preserve_index=False)
-#     logger.warning("Now, the chat template is not right!")
-#     train_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples))
-#     eval_dataset = raw_datasets.select(range(len(raw_datasets) - eval_samples, len(raw_datasets)))
-#     return train_dataset, eval_dataset
