@@ -8,16 +8,13 @@ from torch import nn
 
 from trl.import_utils import is_requests_available, is_vllm_available
 
-
 if is_requests_available():
     import requests
     from requests import ConnectionError
 
-
 if is_vllm_available():
     from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
     from vllm.distributed.utils import StatelessProcessGroup
-
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +63,8 @@ class VLLMClient:
     """
 
     def __init__(
-        self, host: str = "0.0.0.0", server_port: int = 8000, group_port: int = 51216, connection_timeout: float = 0.0
+            self, host: str = "0.0.0.0", server_port: int = 8000, group_port: int = 51216,
+            connection_timeout: float = 0.0
     ):
         if not is_requests_available():
             raise ImportError("requests is not installed. Please install it with `pip install requests`.")
@@ -98,6 +96,7 @@ class VLLMClient:
         while True:
             try:
                 response = requests.get(url)
+                # response = requests.get(url, proxies={"http": None, "https": None}) #todo: 排查
             except requests.exceptions.RequestException as exc:
                 # Check if the total timeout duration has passed
                 elapsed_time = time.time() - start_time
@@ -116,16 +115,16 @@ class VLLMClient:
             time.sleep(retry_interval)
 
     def generate(
-        self,
-        prompts: list[str],
-        n: int = 1,
-        repetition_penalty: float = 1.0,
-        temperature: float = 1.0,
-        top_p: float = 1.0,
-        top_k: int = -1,
-        min_p: float = 0.0,
-        max_tokens: int = 16,
-        guided_decoding_regex: Optional[str] = None,
+            self,
+            prompts: list[str],
+            n: int = 1,
+            repetition_penalty: float = 1.0,
+            temperature: float = 1.0,
+            top_p: float = 1.0,
+            top_k: int = -1,
+            min_p: float = 0.0,
+            max_tokens: int = 16,
+            guided_decoding_regex: Optional[str] = None,
     ) -> list[list[str]]:
         """
         Generates model completions for the provided prompts.
