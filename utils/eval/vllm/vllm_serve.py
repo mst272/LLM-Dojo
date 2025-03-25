@@ -1,40 +1,20 @@
-# Copyright 2025 The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import argparse
 import logging
 import os
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
-
 import torch
 
 from trl import TrlParser
 from trl.import_utils import is_fastapi_available, is_pydantic_available, is_uvicorn_available, is_vllm_available
 
-
 if is_fastapi_available():
     from fastapi import BackgroundTasks, FastAPI
-
 
 if is_pydantic_available():
     from pydantic import BaseModel
 
-
 if is_uvicorn_available():
     import uvicorn
-
 
 if is_vllm_available():
     from vllm import LLM, SamplingParams
@@ -52,6 +32,89 @@ logger = logging.getLogger(__name__)
 # error: RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use
 # the 'spawn' start method
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+
+
+@dataclass
+class ScriptArguments:
+    r"""
+    Arguments for the script.
+
+    Args:
+        model (`str`):
+            Model name or path to load the model from.
+        revision (`str` or `None`, *optional*, defaults to `None`):
+            Revision to use for the model. If not specified, the default branch will be used.
+        tensor_parallel_size (`int`, *optional*, defaults to `1`):
+            Number of tensor parallel workers to use.
+        host (`str`, *optional*, defaults to `"0.0.0.0"`):
+            Host address to run the server on.
+        port (`int`, *optional*, defaults to `8000`):
+            Port to run the server on.
+        gpu_memory_utilization (`float`, *optional*, defaults to `0.9`):
+            Ratio (between 0 and 1) of GPU memory to reserve for the model weights, activations, and KV cache on the
+            device dedicated to generation powered by vLLM. Higher values will increase the KV cache size and thus
+            improve the model's throughput. However, if the value is too high, it may cause out-of-memory (OOM) errors
+            during initialization.
+        dtype (`str`, *optional*, defaults to `"auto"`):
+            Data type to use for vLLM generation. If set to `"auto"`, the data type will be automatically determined
+            based on the model configuration. Find the supported values in the vLLM documentation.
+        max_model_len (`int` or `None`, *optional*, defaults to `None`):
+            If set, the `max_model_len` to use for vLLM. This can be useful when running with reduced
+            `vllm_gpu_memory_utilization`, leading to a reduced KV cache size. If not set, vLLM will use the model
+            context size, which might be much larger than the KV cache, leading to inefficiencies.
+        enable_prefix_caching (`bool` or `None`, *optional*, defaults to `None`):
+            Whether to enable prefix caching in vLLM. If set to `True`, ensure that the model and the hardware support
+            this feature.
+    """
+
+    model: str = field(metadata={"help": "Model name or path to load the model from."})
+    revision: Optional[str] = field(
+        default=None,
+        metadata={"help": "Revision to use for the model. If not specified, the default branch will be used."},
+    )
+    tensor_parallel_size: int = field(
+        default=2,
+        metadata={"help": "Number of tensor parallel workers to use."},
+    )
+    host: str = field(
+        default="0.0.0.0",
+        metadata={"help": "Host address to run the server on."},
+    )
+    port: int = field(
+        default=8000,
+        metadata={"help": "Port to run the server on."},
+    )
+    gpu_memory_utilization: float = field(
+        default=0.9,
+        metadata={
+            "help": "Ratio (between 0 and 1) of GPU memory to reserve for the model weights, activations, and KV "
+                    "cache on the device dedicated to generation powered by vLLM. Higher values will increase the KV cache "
+                    "size and thus improve the model's throughput. However, if the value is too high, it may cause "
+                    "out-of-memory (OOM) errors during initialization."
+        },
+    )
+    dtype: str = field(
+        default="auto",
+        metadata={
+            "help": "Data type to use for vLLM generation. If set to 'auto', the data type will be automatically "
+                    "determined based on the model configuration. Find the supported values in the vLLM documentation."
+        },
+    )
+    max_model_len: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "If set, the `max_model_len` to use for vLLM. This can be useful when running with reduced "
+                    "`vllm_gpu_memory_utilization`, leading to a reduced KV cache size. If not set, vLLM will use the model "
+                    "context size, which might be much larger than the KV cache, leading to inefficiencies."
+        },
+    )
+    enable_prefix_caching: Optional[bool] = field(
+        default=None,
+        metadata={
+            "help": "Whether to enable prefix caching in vLLM. If set to `True`, ensure that the model and the "
+                    "hardware support this feature."
+        },
+    )
 
 
 class WeightSyncWorker(Worker):
@@ -141,89 +204,6 @@ class WeightSyncWorker(Worker):
             del self.pynccl_comm
             self.pynccl_comm = None  # Ensure attribute is reset to None
             self.client_rank = None  # Ensure attribute is reset to None
-
-
-@dataclass
-class ScriptArguments:
-    r"""
-    Arguments for the script.
-
-    Args:
-        model (`str`):
-            Model name or path to load the model from.
-        revision (`str` or `None`, *optional*, defaults to `None`):
-            Revision to use for the model. If not specified, the default branch will be used.
-        tensor_parallel_size (`int`, *optional*, defaults to `1`):
-            Number of tensor parallel workers to use.
-        host (`str`, *optional*, defaults to `"0.0.0.0"`):
-            Host address to run the server on.
-        port (`int`, *optional*, defaults to `8000`):
-            Port to run the server on.
-        gpu_memory_utilization (`float`, *optional*, defaults to `0.9`):
-            Ratio (between 0 and 1) of GPU memory to reserve for the model weights, activations, and KV cache on the
-            device dedicated to generation powered by vLLM. Higher values will increase the KV cache size and thus
-            improve the model's throughput. However, if the value is too high, it may cause out-of-memory (OOM) errors
-            during initialization.
-        dtype (`str`, *optional*, defaults to `"auto"`):
-            Data type to use for vLLM generation. If set to `"auto"`, the data type will be automatically determined
-            based on the model configuration. Find the supported values in the vLLM documentation.
-        max_model_len (`int` or `None`, *optional*, defaults to `None`):
-            If set, the `max_model_len` to use for vLLM. This can be useful when running with reduced
-            `vllm_gpu_memory_utilization`, leading to a reduced KV cache size. If not set, vLLM will use the model
-            context size, which might be much larger than the KV cache, leading to inefficiencies.
-        enable_prefix_caching (`bool` or `None`, *optional*, defaults to `None`):
-            Whether to enable prefix caching in vLLM. If set to `True`, ensure that the model and the hardware support
-            this feature.
-    """
-
-    model: str = field(metadata={"help": "Model name or path to load the model from."})
-    revision: Optional[str] = field(
-        default=None,
-        metadata={"help": "Revision to use for the model. If not specified, the default branch will be used."},
-    )
-    tensor_parallel_size: int = field(
-        default=1,
-        metadata={"help": "Number of tensor parallel workers to use."},
-    )
-    host: str = field(
-        default="0.0.0.0",
-        metadata={"help": "Host address to run the server on."},
-    )
-    port: int = field(
-        default=8000,
-        metadata={"help": "Port to run the server on."},
-    )
-    gpu_memory_utilization: float = field(
-        default=0.9,
-        metadata={
-            "help": "Ratio (between 0 and 1) of GPU memory to reserve for the model weights, activations, and KV "
-            "cache on the device dedicated to generation powered by vLLM. Higher values will increase the KV cache "
-            "size and thus improve the model's throughput. However, if the value is too high, it may cause "
-            "out-of-memory (OOM) errors during initialization."
-        },
-    )
-    dtype: str = field(
-        default="auto",
-        metadata={
-            "help": "Data type to use for vLLM generation. If set to 'auto', the data type will be automatically "
-            "determined based on the model configuration. Find the supported values in the vLLM documentation."
-        },
-    )
-    max_model_len: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "If set, the `max_model_len` to use for vLLM. This can be useful when running with reduced "
-            "`vllm_gpu_memory_utilization`, leading to a reduced KV cache size. If not set, vLLM will use the model "
-            "context size, which might be much larger than the KV cache, leading to inefficiencies."
-        },
-    )
-    enable_prefix_caching: Optional[bool] = field(
-        default=None,
-        metadata={
-            "help": "Whether to enable prefix caching in vLLM. If set to `True`, ensure that the model and the "
-            "hardware support this feature."
-        },
-    )
 
 
 def main(script_args: ScriptArguments):
@@ -417,15 +397,7 @@ def main(script_args: ScriptArguments):
     uvicorn.run(app, host=script_args.host, port=script_args.port)
 
 
-def make_parser(subparsers: argparse._SubParsersAction = None):
-    if subparsers is not None:
-        parser = subparsers.add_parser("vllm-serve", help="Run the vLLM serve script", dataclass_types=ScriptArguments)
-    else:
-        parser = TrlParser(ScriptArguments)
-    return parser
-
-
 if __name__ == "__main__":
-    parser = make_parser()
+    parser = TrlParser(ScriptArguments)
     (script_args,) = parser.parse_args_and_config()
     main(script_args)
