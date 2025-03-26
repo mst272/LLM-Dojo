@@ -9,6 +9,10 @@ class BaseMetric(ABC):
     def compute(self, predictions: List[str], references: List[str]) -> Dict[str, float]:
         pass
 
+    @abstractmethod
+    def extract_generation(self):
+        pass
+
 
 class CodeEvalMetric(BaseMetric):
     def __init__(self, metric_path: str = './metrics/code_eval'):
@@ -31,3 +35,11 @@ class CodeEvalMetric(BaseMetric):
             k=[1]
         )
         return float(pass_at_k["pass@1"])
+
+
+class EmMetric(BaseMetric):
+    def compute(self, predictions: List[str], references: List[str]) -> Dict[str, float]:
+        pass
+
+    def extract_generation(self):
+        pass

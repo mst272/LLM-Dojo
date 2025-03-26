@@ -35,3 +35,5 @@ class CommonArgs:
 
     # 是否自动适配template
     auto_adapt: bool = field(default=True, metadata={"help": "选择是否自动适配template，若为False,则直接使用输入数据"})
+    # 是否训练中评测
+    eval_in_train: bool = False
