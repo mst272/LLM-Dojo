@@ -1,16 +1,18 @@
 import heapq
 import os
 import shutil
+from contextlib import nullcontext
 from dataclasses import dataclass
 import time
 from typing import List, Optional
 
 import torch
-from accelerate.utils import gather_object
+import deepspeed
+from accelerate.utils import broadcast_object_list, gather, gather_object, is_peft_model, set_seed
 import pandas as pd
 from tqdm.auto import tqdm
-
-from eval_utils import _generate_completions, reason_post_process
+from trl.import_utils import is_deepspeed_available, is_rich_available, is_vllm_available
+from eval_utils import _generate_completions, reason_post_process, pad
 import wandb
 from datasets import Dataset
 from transformers.trainer_callback import ExportableState
@@ -68,7 +70,8 @@ class EvaluationCallback(TrainerCallback):
             per_device_test_batch_size: int = 1,
             higher_better: bool = True,
             start_update_best_checkpoints: int = 0,
-            gather_deepspeed3_params: bool = True
+            gather_deepspeed3_params: bool = True,
+            use_vllm: bool = True
 
     ):
         self.gen_config = generation_config
@@ -91,6 +94,58 @@ class EvaluationCallback(TrainerCallback):
             self.sample_dataset = test_dataset.select(range(num_samples))
         else:
             self.sample_dataset = test_dataset
+
+        # 配置vllm client
+        if use_vllm:
+            if not is_vllm_available():
+                raise ImportError(
+                    "vLLM is not available and `use_vllm` is set to True. Please install vLLM with "
+                    "`pip install vllm` to use it."
+                )
+        if self.trainer.accelerator.is_main_process:
+            self.vllm_client = VLLMClient()
+        self._last_loaded_step = 0
+        self.trainer.accelerator.wait_for_everyone()
+
+    def _move_model_to_vllm(self):
+        # For DeepSpeed ZeRO-3, we need to gather all parameters before operations
+        deepspeed_plugin = self.trainer.accelerator.state.deepspeed_plugin
+        zero_stage_3 = deepspeed_plugin is not None and deepspeed_plugin.zero_stage == 3
+        gather_if_zero3 = deepspeed.zero.GatheredParameters if zero_stage_3 else nullcontext
+
+        if is_peft_model(self.trainer.model):
+            # With PEFT and DeepSpeed ZeRO Stage 3, we must gather the full model at once before merging, as merging
+            # adapters in a sharded manner is not supported.
+            with gather_if_zero3(list(self.trainer.model.parameters())):
+                self.trainer.model.merge_adapter()
+
+                # Update vLLM weights while parameters are gathered
+                for name, param in self.trainer.model.named_parameters():
+                    # When using PEFT, we need to recover the original parameter name and discard some parameters
+                    name = name.removeprefix("base_model.model.").replace(".base_layer", "")
+                    if self.trainer.model.prefix in name:
+                        continue
+                    # When module to save, remove its prefix and discard the original module
+                    if "original_module" in name:
+                        continue
+                    name = name.replace("modules_to_save.default.", "")
+
+                    if self.trainer.accelerator.is_main_process:
+                        self.vllm_client.update_named_param(name, param.data)
+
+                # Unmerge adapters while parameters are still gathered
+                self.trainer.model.unmerge_adapter()
+                # Parameters will automatically be repartitioned when exiting the context
+        else:
+            # For non-PEFT models, simply gather and update each parameter individually.
+            for name, param in self.trainer.model.named_parameters():
+                with gather_if_zero3([param]):
+                    if self.trainer.accelerator.is_main_process:
+                        self.vllm_client.update_named_param(name, param.data)
+
+        # Reset cache on main process
+        if self.trainer.accelerator.is_main_process:
+            self.vllm_client.reset_prefix_cache()
 
     def samples_generate_split_between_processes(self, examples, steps):
         """
@@ -138,28 +193,57 @@ class EvaluationCallback(TrainerCallback):
         score = self.metric.compute(references=labels, predictions=generations)
         return score
 
-    # def generate(self, prompt):
-    #     tokenized_prompt = self.trainer.processing_class(prompt, return_tensors='pt')['input_ids'].cuda()
-    #     with torch.inference_mode():
-    #         output = self.trainer.model.generate(inputs=tokenized_prompt, generation_config=self.gen_config)
-    #     return self.trainer.processing_class.decode(output[0][len(tokenized_prompt[0]):], skip_special_tokens=True)
-    #
-    # def samples_table(self, examples):
-    #     records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
-    #     generations = []
-    #     labels = []
-    #     for example in tqdm(examples, leave=False):
-    #         prompt = '补全下面代码，将最终题目和答案返回在代码框中\n' + example['message'][0]['content']
-    #         label = example['message'][1]['content']
-    #         generation = self.generate(prompt=prompt)
-    #         records_table.add_data(prompt, generation, *list(self.gen_config.to_dict().values()))
-    #         generation = reason_post_process(generation, 1)
-    #         generations.append([generation])
-    #         labels.append(label)
-    #     if self.trainer.accelerator.is_main_process:
-    #         wandb.log({"completions": records_table})
-    #     score = self.metric.compute(references=labels, predictions=generations)
-    #     return score
+    def samples_generate_vllm(self, examples, steps):
+        device = self.trainer.accelerator.device
+        labels = [example['message'][1]['content'] for example in examples]
+        prompts_split = examples['message']
+        prompts = []
+        for lis in prompts_split:
+            prompts.append('补全下面代码，将最终题目和答案返回在代码框中\n' + lis[0]['content'])
+        prompts = ['补全下面代码，将最终题目和答案返回在代码框中\n' + prompt for prompt in prompts]
+
+        # First, have main process load weights if needed
+        if steps != self._last_loaded_step:
+            self._move_model_to_vllm()
+            self._last_loaded_step = steps
+        # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
+        all_prompts_text = gather_object(prompts)
+        if self.trainer.accelerator.is_main_process:
+            # todo: with profiling_context(self, "vLLM.generate"):  上下文时间处理
+            start_time = time.time()
+            completion_ids = self.vllm_client.generate(
+                prompts=all_prompts_text,
+                max_tokens=4096
+            )
+            end_time = time.time()  # 记录 _generate_completions 结束时间
+            generation_time = end_time - start_time  # 计算生成耗时
+            print(f"Process main: Generation time: {generation_time:.4f} seconds")
+        else:
+            completion_ids = [None] * len(all_prompts_text)
+            # Broadcast the completions from the main process to all processes, ensuring each process receives its
+            # corresponding slice.
+        completion_ids = broadcast_object_list(completion_ids, from_process=0)
+        process_slice = slice(
+            self.trainer.accelerator.process_index * len(prompts),
+            (self.trainer.accelerator.process_index + 1) * len(prompts),
+        )
+        completion_ids = completion_ids[process_slice]
+
+        tokenizer = self.trainer.processing_class
+        tokenizer.padding_side = "left"
+        completions = tokenizer.batch_decode(completion_ids)
+        generations = [[reason_post_process(c, i)] for i, c in enumerate(completions)]
+        # 处理输出表格数据
+        if self.trainer.accelerator.is_main_process:
+            global_step = [str(steps)] * len(prompts)
+            data = [[global_step[i], prompts[i], completions[i]] for i in range(len(prompts))]
+            self.table.extend(data)
+            table = pd.DataFrame(columns=["step", "prompt", "completion"], data=self.table)
+            wandb.log({"completions": table})
+
+        score = self.metric.compute(references=labels, predictions=generations)
+        return score
+
     def samples_generate(self, examples, steps):
         # records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
         labels = [example['message'][1]['content'] for example in examples]
@@ -268,14 +352,6 @@ class EvaluationCallback(TrainerCallback):
                 print(f"Deleting older checkpoint [{worst_checkpoint.path}] due to args.save_total_limit")
                 shutil.rmtree(worst_checkpoint.path, ignore_errors=True)
 
-    def on_evaluate(self, args, state, control, **kwargs):
-        records_table, custom_score = self.samples_generate(self.sample_dataset)
-        # self.trainer.log({"sample_predictions": records_table})
-        self.trainer.log({"custom_score": custom_score, "step": state.global_step})
-        # if self.trainer.accelerator.is_main_process:
-        #     wandb.log({"custom_score": custom_score, "step": state.global_step})
-        # self.update_best_checkpoints(args, state, custom_score)
-
     def on_step_end(self, args, state, control, **kwargs):
         # Only log once per step (this method may be called multiple times)
         if state.global_step == self._last_logged_step:
@@ -286,10 +362,10 @@ class EvaluationCallback(TrainerCallback):
         if state.global_step % freq != 0:
             return
 
-        custom_score = self.samples_generate(self.sample_dataset, state.global_step)
+        # custom_score = self.samples_generate(self.sample_dataset, state.global_step)
+        custom_score = self.samples_generate_vllm(self.sample_dataset, state.global_step)
         self.trainer.log({"custom_score": custom_score, "step": state.global_step})
 
         self.update_best_checkpoints(args, state, custom_score)
         # Save the last logged step, so we don't log the same completions multiple times
         self._last_logged_step = state.global_step
-
