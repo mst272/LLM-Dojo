@@ -6,7 +6,7 @@ import torch
 
 from trl import TrlParser
 from trl.import_utils import is_fastapi_available, is_pydantic_available, is_uvicorn_available, is_vllm_available
-
+import torch.distributed as dist
 if is_fastapi_available():
     from fastapi import BackgroundTasks, FastAPI
 
@@ -395,6 +395,8 @@ def main(script_args: ScriptArguments):
 
     # Start the server
     uvicorn.run(app, host=script_args.host, port=script_args.port)
+
+    dist.destroy_process_group()
 
 
 if __name__ == "__main__":
