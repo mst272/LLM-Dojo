@@ -29,7 +29,8 @@ deepspeed --master_port 29507 --include localhost:0,1 main_train.py\
     --gradient_checkpointing True \
     --report_to "wandb" \
     --deepspeed './train_args/deepspeed_config/ds_config_zero2.json' \
-    --bf16 True
+    --bf16 True \
+    --auto_adapt True
 
 
 
