@@ -96,7 +96,7 @@ class VLLMClient:
         while True:
             try:
                 # response = requests.get(url)
-                response = requests.get(url, proxies={"http": None, "https": None}) #todo: 排查
+                response = requests.get(url, proxies={"http": None, "https": None})  # todo: 排查
             except requests.exceptions.RequestException as exc:
                 # Check if the total timeout duration has passed
                 elapsed_time = time.time() - start_time
