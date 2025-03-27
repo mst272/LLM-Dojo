@@ -46,7 +46,7 @@ class EvaluationConfig:
     # 基础评估设置
     num_samples: Optional[int] = None
     freq: int = 5
-    metrics: Union[str, List[Dict[str, Union[str, float]]]] = 'code'  # ['code', 'em'] or metrics=[{'name': 'code',
+    metrics: str = 'code'  # ['code', 'em'] or metrics=[{'name': 'code',
     # 'weight': 0.7},{'name': 'em', 'weight': 0.3}]
 
     higher_better: bool = True
@@ -61,7 +61,6 @@ class EvaluationConfig:
 
     # Checkpoint管理
     save_best_checkpoints: bool = True
-    max_best_checkpoints: int = 3
     start_update_best_checkpoints: int = 20
     max_checkpoints: int = 3
 

@@ -43,7 +43,7 @@ class BaseMetric(ABC):
 
 
 class CodeEvalMetric(BaseMetric):
-    def __init__(self, metric_path: str = './metrics/code_eval'):
+    def __init__(self, metric_path: str = './utils/eval/metrics/code_eval'):
         self.metric = evaluate.load(metric_path)
 
     def compute(self, predictions: List[List[str]], references: List[str]) -> float:

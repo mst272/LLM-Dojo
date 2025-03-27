@@ -5,14 +5,14 @@ from contextlib import nullcontext
 from dataclasses import dataclass, asdict
 import time
 from typing import List, Optional
-from configs import GenerationConfig
+from utils.eval.configs import GenerationConfig
 import torch
 import deepspeed
 from accelerate.utils import broadcast_object_list, gather, gather_object, is_peft_model, set_seed
 import pandas as pd
 from tqdm.auto import tqdm
 from trl.import_utils import is_deepspeed_available, is_rich_available, is_vllm_available
-from eval_utils import _generate_completions, reason_post_process, pad
+from utils.eval.eval_utils import _generate_completions, reason_post_process, pad
 import wandb
 from datasets import Dataset
 from transformers.trainer_callback import ExportableState
@@ -20,7 +20,7 @@ from transformers import (
     Trainer,
     TrainerCallback
 )
-from eval_metric import BaseMetric
+from utils.eval.eval_metric import BaseMetric
 from utils.eval.vllm.vllm_client import VLLMClient
 
 
@@ -71,6 +71,9 @@ class EvaluationCallback(TrainerCallback):
             start_update_best_checkpoints: int = 0,
             gather_deepspeed3_params: bool = True,
             use_vllm: bool = True,
+            vllm_server_host: str = "0.0.0.0",
+            vllm_server_port: int = 8080,
+            vllm_server_timeout: float = 120.0,
             prompts_apply_chat: bool = False
 
     ):
@@ -87,6 +90,7 @@ class EvaluationCallback(TrainerCallback):
         self.start_update_best_checkpoints = start_update_best_checkpoints
         self.gather_deepspeed3_params = gather_deepspeed3_params
         self.prompts_apply_chat = prompts_apply_chat
+        self.use_vllm = use_vllm
 
         if self.metric is None:
             raise ValueError("You must provide a metric[BaseMetric]")
@@ -104,7 +108,7 @@ class EvaluationCallback(TrainerCallback):
                     "`pip install vllm` to use it."
                 )
         if self.trainer.accelerator.is_main_process:
-            self.vllm_client = VLLMClient()
+            self.vllm_client = VLLMClient(host=vllm_server_host, server_port=vllm_server_port, connection_timeout=vllm_server_timeout)
         self._last_loaded_step = 0
         self.trainer.accelerator.wait_for_everyone()
 
@@ -194,7 +198,7 @@ class EvaluationCallback(TrainerCallback):
         score = self.metric.compute(references=labels, predictions=generations)
         return score
 
-    def samples_generate_vllm(self, prompts: List[str], labels: List[str], steps):
+    def samples_generate_vllm(self, steps):
         """
         prompts:
         labels:
@@ -229,7 +233,7 @@ class EvaluationCallback(TrainerCallback):
 
             tokenizer = self.trainer.processing_class
             tokenizer.padding_side = "left"
-            completions = tokenizer.batch_decode(completion_ids)   # --> List[str]
+            completions = tokenizer.batch_decode(completion_ids)  # --> List[str]
             generations = self.metric.extract_generation(completions)
             score = self.metric.compute(references=labels, predictions=generations)
             return score
@@ -277,7 +281,8 @@ class EvaluationCallback(TrainerCallback):
         start_time = time.time()
         # todo: 需要fix,目前只是简单的设置几个参数
         generation_config = GenerationConfig(
-            max_new_tokens=self.gen_config.max_new_tokens, do_sample=self.gen_config.do_sample, temperature=self.gen_config.temperature
+            max_new_tokens=self.gen_config.max_new_tokens, do_sample=self.gen_config.do_sample,
+            temperature=self.gen_config.temperature
         )
         completions = _generate_completions(
             prompts,
@@ -382,8 +387,8 @@ class EvaluationCallback(TrainerCallback):
         if state.global_step % freq != 0:
             return
 
-        # todo: 改成字典，返回多个指标可视化，选其中一个或者混合作为保存指标？
-        custom_score = self.samples_generate_vllm(self.sample_dataset, state.global_step)
+        # todo: 改成字典，返回多个指标可视化，选其中一个或者混合作为保存指标？ use_vllm=False的逻辑？
+        custom_score = self.samples_generate_vllm(state.global_step) if self.use_vllm else None
         self.trainer.log({"custom_score": custom_score, "step": state.global_step})
 
         self.update_best_checkpoints(args, state, custom_score)

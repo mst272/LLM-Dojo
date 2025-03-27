@@ -215,7 +215,10 @@ def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = Non
             start_update_best_checkpoints=eval_args.start_update_best_checkpoints,
             use_vllm=eval_args.use_vllm,
             gather_deepspeed3_params=gen_config.gather_deepspeed3_params,
-            prompts_apply_chat=eval_args.prompts_apply_chat
+            prompts_apply_chat=eval_args.prompts_apply_chat,
+            vllm_server_host=eval_args.vllm_server_host,
+            vllm_server_port=eval_args.vllm_server_port,
+            vllm_server_timeout=eval_args.vllm_server_timeout
         )
         trainer.add_callback(eval_callback)
 
