@@ -30,7 +30,11 @@ deepspeed --master_port 29507 --include localhost:0,1 main_train.py\
     --report_to "wandb" \
     --deepspeed './train_args/deepspeed_config/ds_config_zero2.json' \
     --bf16 True \
-    --auto_adapt True
+    --auto_adapt True \
+    --use_eval_in_train True \
+    --test_datasets_path "./" \
+
+
 
 
 

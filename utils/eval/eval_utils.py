@@ -13,10 +13,6 @@ from tqdm.auto import tqdm
 import torch
 
 
-def _generate_completions_vllm():
-    pass
-
-
 def pad(tensors: list[torch.Tensor], padding_value: int = 0, padding_side: str = "right") -> torch.Tensor:
     """
     Pads a list of tensors to the same shape along the first dimension.

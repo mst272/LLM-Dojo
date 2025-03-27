@@ -95,8 +95,8 @@ class VLLMClient:
 
         while True:
             try:
-                response = requests.get(url)
-                # response = requests.get(url, proxies={"http": None, "https": None}) #todo: 排查
+                # response = requests.get(url)
+                response = requests.get(url, proxies={"http": None, "https": None}) #todo: 排查
             except requests.exceptions.RequestException as exc:
                 # Check if the total timeout duration has passed
                 elapsed_time = time.time() - start_time
@@ -179,7 +179,8 @@ class VLLMClient:
         """
         # Get the tensor parallel size from the server
         url = f"http://{self.host}:{self.server_port}/get_tensor_parallel_size/"
-        response = requests.get(url)
+        # response = requests.get(url)
+        response = requests.get(url, proxies={"http": None, "https": None})
         if response.status_code == 200:
             tensor_parallel_size = response.json()["tensor_parallel_size"]
         else:
