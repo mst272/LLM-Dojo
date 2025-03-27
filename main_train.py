@@ -20,7 +20,7 @@ from utils.eval.callback import EvaluationCallback
 from utils.eval.eval_metric import create_metric
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
+os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
 def initial_args():
     parser = HfArgumentParser((CommonArgs,))
@@ -189,7 +189,8 @@ def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = Non
             model=model,
             args=train_args,
             train_dataset=train_dataset,
-            data_collator=data_collator
+            data_collator=data_collator,
+            processing_class=tokenizer
         )
     elif args.task_type == 'pretrain':
         pass

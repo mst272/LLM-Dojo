@@ -232,12 +232,13 @@ class EvaluationCallback(TrainerCallback):
             print(f"\nProcess main: Generation time: {generation_time:.4f} seconds")
 
             tokenizer = self.trainer.processing_class
-            tokenizer.padding_side = "left"
+            #tokenizer.padding_side = "left"
             completions = tokenizer.batch_decode(completion_ids)  # --> List[str]
             generations = self.metric.extract_generation(completions)
             score = self.metric.compute(references=labels, predictions=generations)
-            return score
-        return None
+        else:
+            score = None
+        return score
         # else:
         #     completion_ids = [None] * len(prompts)
         #     # Broadcast the completions from the main process to all processes, ensuring each process receives its
@@ -348,7 +349,7 @@ class EvaluationCallback(TrainerCallback):
 
     def update_best_checkpoints(self, args, state, custom_score):
         """更新最佳checkpoint列表"""
-        if state.global_step < self.start_update_best_checkpoints or custom_score is None:
+        if state.global_step < self.start_update_best_checkpoints:
             return
         print('更新最佳checkpoint列表')
         # 对于越小越好的指标（如loss），转换为负数以便统一处理

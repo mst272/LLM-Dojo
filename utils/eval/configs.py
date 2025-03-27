@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, Union, List, Dict
 from transformers import TrainingArguments
 
+
 @dataclass
 class GenerationConfig:
     """
@@ -20,13 +21,13 @@ class GenerationConfig:
         min_p
 
     """
-    num_generation: int = 1,
-    repetition_penalty: float = 1.0,
-    temperature: float = 1.0,
-    top_p: float = 1.0,
-    top_k: int = -1,
-    min_p: float = 0.0,
-    max_new_tokens: int = 1024,
+    num_generation: int = 1
+    repetition_penalty: float = 1.0
+    temperature: float = 1.0
+    top_p: float = 1.0
+    top_k: int = -1
+    min_p: float = 0.0
+    max_new_tokens: int = 1024
     do_sample: bool = False
 
     # unwrap_model_for_generation
