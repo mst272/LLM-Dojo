@@ -108,7 +108,8 @@ class EvaluationCallback(TrainerCallback):
                     "`pip install vllm` to use it."
                 )
         if self.trainer.accelerator.is_main_process:
-            self.vllm_client = VLLMClient(host=vllm_server_host, server_port=vllm_server_port, connection_timeout=vllm_server_timeout)
+            self.vllm_client = VLLMClient(host=vllm_server_host, server_port=vllm_server_port,
+                                          connection_timeout=vllm_server_timeout)
         self._last_loaded_step = 0
         self.trainer.accelerator.wait_for_everyone()
 
@@ -232,7 +233,7 @@ class EvaluationCallback(TrainerCallback):
             print(f"\nProcess main: Generation time: {generation_time:.4f} seconds")
 
             tokenizer = self.trainer.processing_class
-            #tokenizer.padding_side = "left"
+            # tokenizer.padding_side = "left"
             completions = tokenizer.batch_decode(completion_ids)  # --> List[str]
             generations = self.metric.extract_generation(completions)
             score = self.metric.compute(references=labels, predictions=generations)
@@ -347,7 +348,7 @@ class EvaluationCallback(TrainerCallback):
 
         return output_dir
 
-    def update_best_checkpoints(self, args, state, custom_score):
+    def update_best_checkpoints1(self, args, state, custom_score):
         """更新最佳checkpoint列表"""
         if state.global_step < self.start_update_best_checkpoints:
             return
@@ -373,6 +374,39 @@ class EvaluationCallback(TrainerCallback):
             heapq.heappush(self.best_checkpoints, checkpoint_info)
 
             # 如果超过最大数量，删除最差的checkpoint
+            if len(self.best_checkpoints) > self.max_checkpoints:
+                worst_checkpoint = heapq.heappop(self.best_checkpoints)
+                print(f"Deleting older checkpoint [{worst_checkpoint.path}] due to args.save_total_limit")
+                shutil.rmtree(worst_checkpoint.path, ignore_errors=True)
+
+    def update_best_checkpoints(self, args, state, custom_score):
+        # 从主进程广播 custom_score，确保所有进程有相同数据
+        custom_score = broadcast_object_list([custom_score], from_process=0)[0]
+
+        if state.global_step < self.start_update_best_checkpoints:
+            return
+
+        metric_value = custom_score if self.higher_better else -custom_score
+
+        if self.trainer.accelerator.is_main_process:
+            # 仅主进程决定是否保存
+            if len(self.best_checkpoints) < self.max_checkpoints or metric_value > self.best_checkpoints[
+                0].metric_value:
+                save_flag = True
+            else:
+                save_flag = False
+        else:
+            save_flag = False
+
+        # 广播保存决定到所有进程
+        save_flag = broadcast_object_list([save_flag], from_process=0)[0]
+
+        if save_flag:
+            checkpoint_path = self.save_best_metric_model(args, state)
+            # if self.trainer.accelerator.is_main_process:
+            checkpoint_info = CheckpointInfo(step=state.global_step, metric_value=metric_value,
+                                             path=checkpoint_path)
+            heapq.heappush(self.best_checkpoints, checkpoint_info)
             if len(self.best_checkpoints) > self.max_checkpoints:
                 worst_checkpoint = heapq.heappop(self.best_checkpoints)
                 print(f"Deleting older checkpoint [{worst_checkpoint.path}] due to args.save_total_limit")
