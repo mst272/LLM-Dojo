@@ -1,11 +1,16 @@
+import os
 import re
-from typing import List, Dict, Union, Type
+from typing import List, Dict, Union, Type, Optional
+
+import psutil
+
 import evaluate
 from abc import ABC, abstractmethod
-
+import gc
 from datasets import Dataset
 
 from utils.eval.configs import EvaluationConfig
+from contextlib import contextmanager
 
 
 # 添加新的评估方式，只需要在此文件中创建新的评估指标类
@@ -44,25 +49,66 @@ class BaseMetric(ABC):
 
 class CodeEvalMetric(BaseMetric):
     def __init__(self, metric_path: str = './utils/eval/metrics/code_eval'):
-        self.metric = evaluate.load(metric_path)
+        # self.metric = evaluate.load(metric_path)
+        self.metric_path = metric_path
+        self.memory_threshold = 0.8  # 80% memory usage threshold
+
+    def _check_memory_usage(self) -> Optional[float]:
+        """Monitor memory usage"""
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        memory_percent = process.memory_percent()
+
+        print(f"Current memory usage: {memory_info.rss / 1024 / 1024:.2f}MB ({memory_percent:.1f}%)")
+
+        return memory_percent
+
+    @contextmanager
+    def load_metric(self):
+        """Context manager for loading and cleaning up metric with memory monitoring"""
+        try:
+            memory_percent = self._check_memory_usage()
+            if memory_percent > self.memory_threshold*100:
+                print(f"Warning: High memory usage detected: {memory_percent:.1f}%")
+                gc.collect()
+
+            metric = evaluate.load(self.metric_path)
+            yield metric
+        finally:
+            del metric
+            gc.collect()
+            self._check_memory_usage()
 
     def compute(self, predictions: List[List[str]], references: List[str]) -> float:
-        """
-        Compute python code evaluation metrics
+        with self.load_metric() as metric:
+            try:
+                pass_at_k, results = metric.compute(
+                    predictions=predictions,
+                    references=references,
+                    k=[1]
+                )
+                return float(pass_at_k["pass@1"])
+            except Exception as e:
+                print(f"Error during computation: {str(e)}")
+                raise e
 
-        Args:
-            predictions: A list of lists, where each sublist contains predicted code strings.
-            references: List of reference code strings.
-
-        Returns:
-            float pass@1
-        """
-        pass_at_k, results = self.metric.compute(
-            predictions=predictions,
-            references=references,
-            k=[1]
-        )
-        return float(pass_at_k["pass@1"])
+    # def compute(self, predictions: List[List[str]], references: List[str]) -> float:
+    #     """
+    #     Compute python code evaluation metrics
+    #
+    #     Args:
+    #         predictions: A list of lists, where each sublist contains predicted code strings.
+    #         references: List of reference code strings.
+    #
+    #     Returns:
+    #         float pass@1
+    #     """
+    #     pass_at_k, results = self.metric.compute(
+    #         predictions=predictions,
+    #         references=references,
+    #         k=[1]
+    #     )
+    #     return float(pass_at_k["pass@1"])
 
     def extract_generation(self, completions: List[str]):
         """
@@ -74,6 +120,7 @@ class CodeEvalMetric(BaseMetric):
         Returns:
             self.compute[predictions] format. For example, there is List[List[str]]
         """
+
         def extract(code: str, index: int):
             # Look for code blocks
             code_pattern = r'```(?:python|go|javascript|java|bash|js|cpp|cs|php)(.*?)```'

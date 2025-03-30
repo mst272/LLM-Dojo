@@ -390,8 +390,8 @@ class EvaluationCallback(TrainerCallback):
 
         if self.trainer.accelerator.is_main_process:
             # 仅主进程决定是否保存
-            if len(self.best_checkpoints) < self.max_checkpoints or metric_value > self.best_checkpoints[
-                0].metric_value:
+            if len(self.best_checkpoints) < self.max_checkpoints or (metric_value > self.best_checkpoints[
+                0].metric_value and state.global_step % args.save_steps  != 0):
                 save_flag = True
             else:
                 save_flag = False
