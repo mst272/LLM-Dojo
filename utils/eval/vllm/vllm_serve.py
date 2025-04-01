@@ -7,6 +7,7 @@ import torch
 from trl import TrlParser
 from trl.import_utils import is_fastapi_available, is_pydantic_available, is_uvicorn_available, is_vllm_available
 import torch.distributed as dist
+
 if is_fastapi_available():
     from fastapi import BackgroundTasks, FastAPI
 
@@ -109,7 +110,7 @@ class ScriptArguments:
         },
     )
     enable_prefix_caching: Optional[bool] = field(
-        default=None,
+        default=False,
         metadata={
             "help": "Whether to enable prefix caching in vLLM. If set to `True`, ensure that the model and the "
                     "hardware support this feature."
@@ -234,7 +235,7 @@ def main(script_args: ScriptArguments):
         # Automatic Prefix Caching caches the KV cache of existing queries, so that a new query can
         # directly reuse the KV cache if it shares the same prefix with one of the existing queries.
         # This is particularly useful here because we generate completions from the same prompts.
-        enable_prefix_caching=script_args.enable_prefix_caching,
+        enable_prefix_caching=script_args.enable_prefix_caching,  #https://github.com/huggingface/open-r1/issues/433
         max_model_len=script_args.max_model_len,
         worker_cls=WeightSyncWorker,
     )
@@ -319,6 +320,7 @@ def main(script_args: ScriptArguments):
             min_p=request.min_p,
             max_tokens=request.max_tokens,
             guided_decoding=guided_decoding,
+            seed=42,
         )
         all_outputs = llm.generate(request.prompts, sampling_params=sampling_params)
         completion_ids = [list(output.token_ids) for outputs in all_outputs for output in outputs.outputs]

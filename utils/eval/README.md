@@ -33,3 +33,7 @@ accelerate launch --config_file rlhf/ds_config/ds_zero3.yaml main_train.py
 2、设置zero3_init_flag: false，保存模型才没有问题，不然可能出现cpu oom.尚不知原因。
 
 3、上述问题貌似破案了，eval代码时出现了内存泄漏。
+
+4、训练时出现训推不一致问题，训练中评测跟保存后结果对不上，最后找到原因是因为没有enable_prefix_caching=False
+
+参考：https://github.com/huggingface/open-r1/issues/433

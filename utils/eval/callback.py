@@ -391,7 +391,7 @@ class EvaluationCallback(TrainerCallback):
         if self.trainer.accelerator.is_main_process:
             # 仅主进程决定是否保存
             if len(self.best_checkpoints) < self.max_checkpoints or (metric_value > self.best_checkpoints[
-                0].metric_value and state.global_step % args.save_steps  != 0):
+                0].metric_value and state.global_step % args.save_steps != 0):
                 save_flag = True
             else:
                 save_flag = False
@@ -424,7 +424,9 @@ class EvaluationCallback(TrainerCallback):
 
         # todo: 改成字典，返回多个指标可视化，选其中一个或者混合作为保存指标？ use_vllm=False的逻辑？
         custom_score = self.samples_generate_vllm(state.global_step) if self.use_vllm else None
-        self.trainer.log({"custom_score": custom_score, "step": state.global_step})
+        if self.trainer.accelerator.is_main_process:
+            wandb.log({"custom_score": custom_score, "step": state.global_step})
+        # self.trainer.log({"custom_score": custom_score, "step": state.global_step})
 
         self.update_best_checkpoints(args, state, custom_score)
         # Save the last logged step, so we don't log the same completions multiple times
