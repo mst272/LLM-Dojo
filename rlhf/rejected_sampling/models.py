@@ -1,91 +1,20 @@
-import dataclasses
-import os
-import sys
-from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple, Union
-import copy
-
+"""
+Model implementations for different types of scoring models.
+Contains classes and functions for classification models, API models, and local vLLM models.
+"""
+import asyncio
+from typing import List, Dict, Tuple, Union
 import torch
-import torch.nn as nn
-from transformers import HfArgumentParser
-from transformers.hf_argparser import DataClassType
+import numpy as np
+from datasets import Dataset
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    DataCollatorWithPadding
+)
 
 
-class ArgumentParserPlus(HfArgumentParser):
-    def parse_yaml_and_args(self, yaml_arg: str, other_args: Optional[List[str]] = None) -> List[dataclass]:
-        """
-        Parse a YAML file and overwrite the default/loaded values with the values provided to the command line.
-
-        Args:
-            yaml_arg (`str`):
-                The path to the config file used
-            other_args (`List[str]`, *optional`):
-                A list of strings to parse as command line arguments, e.g. ['--arg=val', '--arg2=val2'].
-
-        Returns:
-            [`List[dataclass]`]: a list of dataclasses with the values from the YAML file and the command line
-        """
-        arg_list = self.parse_yaml_file(os.path.abspath(yaml_arg))
-
-        outputs = []
-        # strip other args list into dict of key-value pairs
-        other_args = {arg.split("=")[0].strip("-"): arg.split("=")[1] for arg in other_args}
-        used_args = {}
-
-        # overwrite the default/loaded value with the value provided to the command line
-        # noqa adapted from https://github.com/huggingface/transformers/blob/d0b5002378daabf62769159add3e7d66d3f83c3b/src/transformers/hf_argparser.py#L327
-        for data_yaml, data_class in zip(arg_list, self.dataclass_types):
-            keys = {f.name for f in dataclasses.fields(data_yaml) if f.init}
-            inputs = {k: v for k, v in vars(data_yaml).items() if k in keys}
-            for arg, val in other_args.items():
-                # add only if in keys
-
-                if arg in keys:
-                    base_type = data_yaml.__dataclass_fields__[arg].type
-                    inputs[arg] = val
-
-                    # cast type for ints, floats (default to strings)
-                    if base_type in [int, float]:
-                        inputs[arg] = base_type(val)
-
-                    if base_type == List[str]:
-                        inputs[arg] = [str(v) for v in val.split(",")]
-
-                    # bool of a non-empty string is True, so we manually check for bools
-                    if base_type == bool:
-                        if val in ["true", "True"]:
-                            inputs[arg] = True
-                        else:
-                            inputs[arg] = False
-
-                    # add to used-args so we can check if double add
-                    if arg not in used_args:
-                        used_args[arg] = val
-                    else:
-                        raise ValueError(f"Duplicate argument provided: {arg}, may cause unexpected behavior")
-
-            obj = data_class(**inputs)
-            outputs.append(obj)
-
-        return outputs
-
-    def parse(self) -> Union[DataClassType, Tuple[DataClassType]]:
-        if len(sys.argv) == 2 and sys.argv[1].endswith(".yaml"):
-            # If we pass only one argument to the script and it's the path to a YAML file,
-            # let's parse it to get our arguments.
-            output = self.parse_yaml_file(os.path.abspath(sys.argv[1]))
-        # parse command line args and yaml file
-        elif len(sys.argv) > 2 and sys.argv[1].endswith(".yaml"):
-            output = self.parse_yaml_and_args(os.path.abspath(sys.argv[1]), sys.argv[2:])
-        # parse command line args only
-        else:
-            output = self.parse_args_into_dataclasses()
-
-        if len(output) == 1:
-            output = output[0]
-        return output
-
-
+# for classification model
 def first_true_indices(bools: torch.Tensor, dtype=torch.long) -> torch.Tensor:
     """
     Finds the index of the first `True` value in each row of a boolean tensor. If no `True` value exists in a row,
@@ -122,6 +51,7 @@ def first_true_indices(bools: torch.Tensor, dtype=torch.long) -> torch.Tensor:
     return torch.min(zero_or_index, dim=-1).values
 
 
+# for classification model
 def get_reward(
         model: torch.nn.Module, query_responses: torch.Tensor, pad_token_id: int, context_length: int
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -226,68 +156,178 @@ def get_reward(
     )
 
 
-def find_all_linear_names(model):
-    """
-    找出所有全连接层，为所有全连接添加adapter
-    """
-    cls = nn.Linear
-    lora_module_names = set()
-    for name, module in model.named_modules():
-        if isinstance(module, cls):
-            names = name.split('.')
-            lora_module_names.add(names[-1])
+class ClassificationModel:
+    """Classification model for scoring using HuggingFace transformers."""
 
-    if 'lm_head' in lora_module_names:  # needed for 16-bit
-        lora_module_names.remove('lm_head')
-    lora_module_names = list(lora_module_names)
-    return lora_module_names
+    def __init__(self, model_path: str, device: torch.device, max_batch_size: int):
+        self.model_path = model_path
+        self.device = device
+        self.max_batch_size = max_batch_size
+        self._setup_model()
 
+    def _setup_model(self):
+        """Initialize tokenizer and model."""
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path,
+            padding_side="right"
+        )
+        self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
-def is_right_apply_chat(tokenizer, prompt: List[Dict[str, str]], assistant_content: List[Dict[str, str]]) -> bool:
-    """
-    Checks if the assistant's content is correctly applied to the prompt in a chat template.
-    Args:
-        tokenizer: The tokenizer.
-        prompt: The initial prompt message.
-        assistant_content: The content provided by the assistant.
-    Returns:
-        bool: True if the assistant's content is correctly applied, False otherwise.
-    """
-    try:
-        test_assistant = tokenizer.apply_chat_template(assistant_content, tokenize=False)
-        test_prompt = tokenizer.apply_chat_template(prompt, tokenize=False)
-        conversation = copy.deepcopy(prompt)
-        conversation.append(assistant_content[0])
-        if tokenizer.apply_chat_template(conversation) == test_prompt + test_assistant:
-            return True
-        else:
-            return False
-    except Exception as e:
-        return False
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            self.model_path,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="flash_attention_2"
+        ).to(self.device).eval()
 
+        # Initialize a data collator to handle dynamic padding of input sequences
+        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
 
-def fix_chat_template_if_needed(tokenizer, prompt: List[Dict[str, str]], chosen: List[Dict[str, str]],
-                                rejected: List[Dict[str, str]]):
-    """
-    Fixes the chat template if needed.
-    Args:
-        tokenizer: The tokenizer.
-        prompt: The initial prompt message.
-        chosen: The chosen response, a list containing a single dictionary representing the chosen message.
-        rejected: The rejected response, a list containing a single dictionary representing the rejected message.
+    def _batch_process(
+            self,
+            ds: Dataset,
+            current_batch_size: int
+    ) -> torch.Tensor:
+        """Process dataset in batches with dynamic batch sizing."""
+        # NOTE: two optimizations here:
+        # 1. we sort by input_ids length to reduce padding at first
+        # 1.1 note that this may cause slightly different results due to numerical issues.
+        #   e.g., with sort: https://huggingface.co/datasets/vwxyzjn/rejection_sampling_1723242217
+        #   e.g., without sort: https://huggingface.co/datasets/vwxyzjn/rejection_sampling_1723242476
+        # 2. we shrink the batch size if we run out of memory (so initially we can use a large batch size)
+
+        # Sort by length to optimize padding
+        input_lengths = [len(x) for x in ds["input_ids"]]
+        sorted_indices = np.argsort(input_lengths)
+        scores = []
+        i = 0
+
+        while i < len(ds):
+            with torch.no_grad():
+                batch_data = ds[sorted_indices[i: i + current_batch_size]]
+                try:
+                    print(f"Processing: {i}:{i + current_batch_size}/{len(ds)}")
+                    input_ids = self.data_collator(batch_data)["input_ids"].to(self.device)
+                    _, score, _ = get_reward(
+                        self.model,
+                        input_ids,
+                        self.tokenizer.pad_token_id,
+                        0
+                    )
+                    # score = (batch_size, )
+                    scores.extend(score.cpu().tolist())  # convert the tensor score to a list
+                    i += current_batch_size
+                except torch.cuda.OutOfMemoryError:
+                    if current_batch_size == 1:
+                        raise ValueError("Out of memory even with batch size 1")
+                    current_batch_size //= 2
+                    print(f"Reducing batch size to {current_batch_size}")
+                    continue
+
+        # Restore original order
+        scores = np.array(scores)
+        scores = scores[np.argsort(sorted_indices)]
+        return torch.tensor(scores)
+
+    def get_scores(self, shard: List[str], **kwargs) -> torch.Tensor:
+        """
+        Process a shard of data using the classification model.
+
+        This function processes a shard (subset) of data using a specified model. It tokenizes the data,
+        runs it through the model to get reward scores, and handles out-of-memory errors by adjusting the batch size.
+
+        Args:
+            shard (List[str]): A list of strings representing the shard of data to be processed.
+
         Returns:
-        - tuple: A tuple containing the fixed prompt, fixed chosen response, and fixed rejected response.
-    """
-    conversation_chosen = copy.deepcopy(prompt)
-    conversation_rejected = copy.deepcopy(prompt)
-    conversation_chosen.append(chosen[0])
-    conversation_rejected.append(rejected[0])
-    conversation_chosen = tokenizer.apply_chat_template(conversation_chosen, tokenize=False)
-    conversation_rejected = tokenizer.apply_chat_template(conversation_rejected, tokenize=False)
-    # find position
-    start_position = conversation_chosen.find(chosen[0]['content'][0])
-    # The following is right
-    fixed_prompt = conversation_chosen[:start_position]
-    fixed_chosen = conversation_chosen[start_position:]
-    fixed_rejected = conversation_rejected[start_position:]
-    return fixed_prompt, fixed_chosen, fixed_rejected
+            torch.Tensor: A tensor containing the reward scores for each item in the shard.
+                          Shape: (num_items_in_shard,)
+        """
+        # Convert to dataset and tokenize
+        raw_ds = Dataset.from_list(shard)
+        # Apply a tokenization function to each item in the dataset
+        ds = raw_ds.map(
+            lambda x: {"input_ids": self.tokenizer.apply_chat_template(x["messages"])},
+            remove_columns=raw_ds.column_names,
+            num_proc=4
+        )
+
+        return self._batch_process(ds, self.max_batch_size)
+
+
+class APIModel:
+    """API-based model for scoring (e.g., GPT-3.5, GPT-4)."""
+
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+
+    async def _generate_scores(self, data: List[Dict]) -> List[float]:
+        """Generate scores using API calls."""
+        # TODO: Implement actual API calls
+        pass
+
+    @staticmethod
+    def format_conversation(messages: List[dict]) -> str:
+        """Format conversation messages to string."""
+        formatted = []
+        for msg in messages:
+            role = "User A" if msg["role"] == "user" else "User B"
+            formatted.append(f"{role}: {msg['content'].strip()}")
+        return "\n".join(formatted)
+
+    def get_score(self, shard: List[str]) -> torch.Tensor:
+        """
+        Process a shard of data using the API model.
+
+        shard (List[str]): A list of strings representing the shard of data to be processed.
+        """
+        raw_ds = Dataset.from_list(shard)
+        ds = raw_ds.map(
+            lambda x: {"prompt": self.format_conversation(x["messages"][:-1])},
+            num_proc=4
+        )
+
+        prompts = ds["prompt"]
+        responses = ds["model_completion"]
+
+        data = [
+            {"prompt": p, "response": r}
+            for p, r in zip(prompts, responses)
+        ]
+
+        scores = asyncio.run(self._generate_scores(data))
+        return torch.tensor(scores)
+
+
+class VLLMModel:
+    """Local vLLM model for scoring."""
+
+    def __init__(self, model_path: str, device: str):
+        self.model_path = model_path
+        self.device = device
+        # TODO: Initialize vLLM model
+
+    def process_shard(self, shard: List[str], **kwargs) -> torch.Tensor:
+        """Process a shard of data using the vLLM model."""
+        # TODO: Implement vLLM processing
+        pass
+
+
+class RuleBase:
+    pass
+
+
+def create_model(
+    model_type: str,
+    model_path: str,
+    device: torch.device = None,
+    max_batch_size: int = 64
+) -> Union[ClassificationModel, APIModel, VLLMModel]:
+    """Factory function to create appropriate model based on type."""
+    if model_type == "classification_model":
+        return ClassificationModel(model_path, device, max_batch_size)
+    elif model_type == "api_model":
+        return APIModel(model_path)
+    elif model_type == "llm_model":
+        return VLLMModel(model_path, str(device))
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
