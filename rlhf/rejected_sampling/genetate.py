@@ -49,7 +49,7 @@ def load_datasets(data_files: str, shuffle: bool):
         datasets = concatenate_datasets(datasets)
     if shuffle:
         datasets = datasets.shuffle(seed=42)
-    return datasets
+    return datasets['train']
 
 
 def save_jsonl(save_filename: str, table: Dict[str, List]):
@@ -100,8 +100,8 @@ def generate_with_vllm(model_name_or_path: str, prompt_token_ids: List[int], gen
 
 def tokenize(dataset: Dataset, auto_adapt: bool, system: str, tokenizer):
     def tokenize_fn(row):
-        answer = row['answer']
-        prompt = row['prompt']
+        answer = row['answer'] if 'answer' in row else row['messages'][1]['content']
+        prompt = row['prompt'] if 'prompt' in row else row['messages'][0]['content']
         messages = [
             {"role": "user", "content": prompt}
         ]

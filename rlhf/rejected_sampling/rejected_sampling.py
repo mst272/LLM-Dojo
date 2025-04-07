@@ -141,35 +141,12 @@ def main():
     best_offsets_per_model = {}
     worst_offsets_per_model = {}
     reference_completion_scores_per_model = {}
-    for model_name_or_path in args.model_names_or_paths:
-        results = []
-        # if use openai
-        # if use_api_model:  #todo: model_type
-        if "gpt-3.5" in model_name_or_path or "gpt-4" in model_name_or_path:
-            # when using LLM as a judge, num_gpus here refers to the number of shards as we query an API and we don't
-            # use GPUs
-            for i in range(args.num_gpus):
-                results.append(process_shard_api(model_name_or_path, args, shards[i]))
-            scores = []
-            for result in results:
-                scores.append(result)
-        elif args.use_model_type == 'llm_model':
-            pass
-        else:  # classification model
-            with mp.Pool(args.num_gpus) as pool:  # NOTE: the `result.get()` need to live in this `mp.Pool` context
-                for i in range(args.num_gpus):
-                    results.append(
-                        pool.apply_async(process_shard_classification_model, (i, model_name_or_path, args, shards[i])))
-                # Collect results
-                scores = []
-                for result in results:
-                    scores.append(result.get())
 
-        # Combine scores from all GPUs
-        scores = torch.cat(scores)
+    for model_name_or_path in args.model_names_or_paths:
+        # Get scores based on model type
+        scores = get_model_scores(model_name_or_path, args, shards)
         scores_per_prompt = scores.reshape(-1, actual_num_completions)  # (n_prompts, n_completions)
-        reference_completion_scores = scores_per_prompt[:, 0]
-        reference_completion_scores_per_model[model_name_or_path] = reference_completion_scores.tolist()
+        reference_completion_scores_per_model[model_name_or_path] = scores_per_prompt[:, 0].tolist()
 
         if not args.include_reference_completion_for_rejection_sampling:
             scores_per_prompt = scores_per_prompt[:, 1:]
@@ -178,16 +155,17 @@ def main():
             actual_num_completions -= 1
 
         assert len(completions) == len(scores)
-        # Rejection sampling
-        for i in range(len(scores)):
+
+        # Rejection sampling, Update completion scores
+        for i, score in enumerate(scores):
             if "score" not in completions[i]:
                 completions[i]["score"] = {}
-            completions[i]["score"][model_name_or_path] = scores[i].item()
             if "reference_completion_score" not in completions[i]:
                 completions[i]["reference_completion_score"] = {}
-            completions[i]["reference_completion_score"][model_name_or_path] = reference_completion_scores[
-                i // actual_num_completions
-                ].item()
+
+            completions[i]["score"][model_name_or_path] = score.item()
+            completions[i]["reference_completion_score"][model_name_or_path] = \
+                reference_completion_scores_per_model[model_name_or_path][i // actual_num_completions]
 
         best_indices = torch.argmax(scores_per_prompt, dim=1)  # (n_prompts, 1) --> (n_prompts, )
         worst_indices = torch.argmin(scores_per_prompt, dim=1)  # (n_prompts, 1) --> (n_prompts, )

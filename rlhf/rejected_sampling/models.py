@@ -257,8 +257,9 @@ class ClassificationModel:
 class APIModel:
     """API-based model for scoring (e.g., GPT-3.5, GPT-4)."""
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, api_key: str):
         self.model_name = model_name
+        self.api_key = api_key
 
     async def _generate_scores(self, data: List[Dict]) -> List[float]:
         """Generate scores using API calls."""
