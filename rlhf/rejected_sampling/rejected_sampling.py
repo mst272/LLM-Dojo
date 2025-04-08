@@ -25,7 +25,7 @@ class Args:
     max_forward_batch_size: int = 64
     num_gpus: int = 1  # New argument for specifying the number of GPUs
     mode: str = "judgement"
-    skill: str = "chat"
+    skill: str = "chat"  # [chat, code, code-chat]
     include_reference_completion_for_rejection_sampling: bool = True
 
 
@@ -56,29 +56,6 @@ def load_completions(filename: str) -> List[dict]:
         return [json.loads(line) for line in f]
 
 
-def majority_vote(model_offsets: Dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Get majority vote across models.
-
-    model_offsets: offsets returned by each model. each tensor is of shape (n_prompts,) indicating best/worst completion offset per prompt
-    """
-    # Determine the number of samples
-    num_samples = next(iter(model_offsets.values())).size(0)
-    # Initialize tensor to store the majority votes
-    votes = torch.zeros(num_samples, dtype=torch.long)
-
-    # Tally the votes and determine the majority vote for each sample
-    for i in range(num_samples):
-        # Collect votes from all models for the current sample
-        sample_votes = [offsets[i].item() for offsets in model_offsets.values()]
-        # Determine the most common vote
-        counter = Counter(sample_votes)
-        # Try to get the majority vote, but if all models disagree, we randomly choose one
-        votes[i] = counter.most_common(1)[0][0] if len(model_offsets) != len(counter) else \
-            sample_votes[np.random.randint(len(sample_votes))]
-    return votes
-
-
 def get_model_scores(
         model_path: str,
         args: Args,
@@ -86,26 +63,10 @@ def get_model_scores(
 ) -> torch.Tensor:
     """Get scores based on model type."""
     results = []
-
-    if args.use_model_type == 'classification_model':
-        # 使用多进程处理 classification model
-        with mp.Pool(args.num_gpus) as pool:
-            for i, shard in enumerate(shards):
-                model = create_model(
-                    args.use_model_type,
-                    model_path,
-                    torch.device(f"cuda:{i}"),
-                    args.max_forward_batch_size
-                )
-                results.append(
-                    pool.apply_async(model.get_score, (shard,))
-                )
-            results = [r.get() for r in results]
-    else:
-        # API 模型和 vLLM 模型直接处理
-        model = create_model(args.use_model_type, model_path)
-        for shard in shards:
-            results.append(model.get_score(shard))
+    # API 模型和 vLLM 模型直接处理
+    model = create_model(args.use_model_type, model_path)
+    for shard in shards:
+        results.append(model.get_score(shard))
 
     return torch.cat(results)
 
@@ -115,76 +76,23 @@ def main():
     parser = HfArgumentParser((Args,))
     args = parser.parse_args_into_dataclasses()[0]
 
-    # Setup multiprocessing
-    mp.set_start_method("spawn", force=True)
-
     # Load and preprocess data
     completions = load_completions(args.input_filename)
 
     # process: include the reference completion in the completions for efficient rejection sampling
-    new_completions = []
-    for i in range(len(completions)):
-        if i % args.num_completions == 0:
-            reference_completion = copy.deepcopy(completions[i])
-            reference_completion["messages"][-1]["content"] = reference_completion["reference_completion"]
-            reference_completion["model_completion"] = reference_completion["reference_completion"]
-            new_completions.append(reference_completion)
-        new_completions.append(completions[i])
-    completions = new_completions
-    actual_num_completions = args.num_completions + 1  # we have added the reference completion
+    if args.include_reference_completion_for_rejection_sampling:
+        new_completions = []
+        for i in range(len(completions)):
+            if i % args.num_completions == 0:
+                reference_completion = copy.deepcopy(completions[i])
+                reference_completion["messages"][-1]["content"] = reference_completion["reference_completion"]
+                reference_completion["model_completion"] = reference_completion["reference_completion"]
+                new_completions.append(reference_completion)
+            new_completions.append(completions[i])
+        completions = new_completions
+        actual_num_completions = args.num_completions + 1  # we have added the reference completion
 
-    # Split the data into shards
-    shard_size = len(completions) // args.num_gpus
-    shards = [completions[i: i + shard_size] for i in range(0, len(completions), shard_size)]
-
-    # Process shards in parallel
-    best_offsets_per_model = {}
-    worst_offsets_per_model = {}
-    reference_completion_scores_per_model = {}
-
-    for model_name_or_path in args.model_names_or_paths:
-        # Get scores based on model type
-        scores = get_model_scores(model_name_or_path, args, shards)
-        scores_per_prompt = scores.reshape(-1, actual_num_completions)  # (n_prompts, n_completions)
-        reference_completion_scores_per_model[model_name_or_path] = scores_per_prompt[:, 0].tolist()
-
-        if not args.include_reference_completion_for_rejection_sampling:
-            scores_per_prompt = scores_per_prompt[:, 1:]
-            scores = scores_per_prompt.flatten()
-            completions = [completions[i] for i in range(len(completions)) if i % actual_num_completions != 0]
-            actual_num_completions -= 1
-
-        assert len(completions) == len(scores)
-
-        # Rejection sampling, Update completion scores
-        for i, score in enumerate(scores):
-            if "score" not in completions[i]:
-                completions[i]["score"] = {}
-            if "reference_completion_score" not in completions[i]:
-                completions[i]["reference_completion_score"] = {}
-
-            completions[i]["score"][model_name_or_path] = score.item()
-            completions[i]["reference_completion_score"][model_name_or_path] = \
-                reference_completion_scores_per_model[model_name_or_path][i // actual_num_completions]
-
-        best_indices = torch.argmax(scores_per_prompt, dim=1)  # (n_prompts, 1) --> (n_prompts, )
-        worst_indices = torch.argmin(scores_per_prompt, dim=1)  # (n_prompts, 1) --> (n_prompts, )
-        best_indices_offset = (
-                torch.arange(0, len(best_indices) * actual_num_completions, actual_num_completions) + best_indices
-        )
-        best_offsets_per_model[model_name_or_path] = best_indices_offset
-
-        worst_indices_offset = (
-                torch.arange(0, len(worst_indices) * actual_num_completions, actual_num_completions) + worst_indices
-        )
-        worst_offsets_per_model[model_name_or_path] = worst_indices_offset
-
-    # Majority vote
-    best_indices_offset = majority_vote(best_offsets_per_model)
-    worst_indices_offset = majority_vote(worst_offsets_per_model)
-
-    best_completions = [completions[i] for i in best_indices_offset]
-    worst_completions = [completions[i] for i in worst_indices_offset]
+    # rejected sampling by api models
 
     # Save results
     table = defaultdict(list)
