@@ -61,6 +61,28 @@ def save_jsonl(save_filename: str, table: Dict[str, List]):
             outfile.write("\n")
 
 
+def save_jsonl_in_chunks_to_files(base_filename: str, table: Dict[str, List], chunksize: int):
+    """
+    将字典数据按指定的 chunksize 分块保存为多个 JSONL 文件。
+
+    Args:
+        base_filename: 保存的文件名的基本名称（不包含 chunk 编号）。
+        table: 包含数据的字典，其中 values 是等长的列表。
+        chunksize: 每个 chunk 文件保存的行数。
+    """
+    first_key = list(table.keys())[0]
+    num_rows = len(table[first_key])
+    os.makedirs(os.path.dirname(base_filename), exist_ok=True)
+    chunk_number = 0
+    for i in range(0, num_rows, chunksize):
+        chunk_number += 1
+        save_filename = f"{base_filename}_chunk_{chunk_number}.jsonl"
+        with open(save_filename, "w") as outfile:
+            for j in range(i, min(i + chunksize, num_rows)):
+                json.dump({key: table[key][j] for key in table}, outfile)
+                outfile.write("\n")
+
+
 def generate_with_vllm(model_name_or_path: str, prompt_token_ids: List[int], gen_args: GenerationArgs):
     llm = LLM(
         model=model_name_or_path,
@@ -115,8 +137,8 @@ def tokenize(dataset: Dataset, auto_adapt: bool, system: str, tokenizer):
         return {"input_ids": outputs, "prompt": prompt, "answer": answer}
 
     def tokenize_fn_origin(row):
-        prompt = row['prompt']
-        answer = row['answer']
+        prompt = row['prompt'] if 'prompt' in row else row['messages'][0]['content']
+        answer = row['answer'] if 'answer' in row else row['messages'][1]['content']
         outputs = tokenizer.encode(prompt)
         return {"input_ids": outputs, "prompt": prompt, "answer": answer}
 

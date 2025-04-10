@@ -95,26 +95,6 @@ def main():
     # rejected sampling by api models
 
     # Save results
-    table = defaultdict(list)
-    for i in range(len(best_completions)):
-        table["chosen"].append(best_completions[i]["messages"])
-        table["rejected"].append(worst_completions[i]["messages"])
-        table["reference_completion"].append(worst_completions[i]["reference_completion"])
-        table["reference_completion_score"].append(
-            {key: reference_completion_scores_per_model[key][i] for key in reference_completion_scores_per_model}
-        )
-        assert worst_completions[i]["messages"][:-1] == best_completions[i]["messages"][:-1]
-        table["chosen_score"].append(best_completions[i]["score"])
-        table["rejected_score"].append(worst_completions[i]["score"])
-    save_jsonl(args.save_filename, table)
-
-    table_scores = defaultdict(list)
-    keys = list(completions[0].keys())
-    for i in range(len(completions)):
-        for key in keys:
-            table_scores[key].append(completions[i][key])
-    save_jsonl(args.save_filename_scores, table_scores)
-
 
 if __name__ == "__main__":
     main()
