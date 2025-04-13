@@ -2,17 +2,15 @@ import heapq
 import os
 import shutil
 from contextlib import nullcontext
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 import time
 from typing import List, Optional
 from utils.eval.configs import GenerationConfig
-import torch
 import deepspeed
-from accelerate.utils import broadcast_object_list, gather, gather_object, is_peft_model, set_seed
+from accelerate.utils import broadcast_object_list, gather, gather_object, is_peft_model,
 import pandas as pd
-from tqdm.auto import tqdm
 from trl.import_utils import is_deepspeed_available, is_rich_available, is_vllm_available
-from utils.eval.eval_utils import _generate_completions, reason_post_process, pad
+from utils.eval.eval_utils import _generate_completions, reason_post_process
 import wandb
 from datasets import Dataset
 from transformers.trainer_callback import ExportableState
@@ -74,7 +72,7 @@ class EvaluationCallback(TrainerCallback):
             vllm_server_host: str = "0.0.0.0",
             vllm_server_port: int = 8080,
             vllm_server_timeout: float = 120.0,
-            prompts_apply_chat: bool = False
+            prompts_apply_chat: bool = True
 
     ):
         self.gen_config = generation_config
@@ -148,7 +146,6 @@ class EvaluationCallback(TrainerCallback):
                 with gather_if_zero3([param]):
                     if self.trainer.accelerator.is_main_process:
                         self.vllm_client.update_named_param(name, param.data)
-
         # Reset cache on main process
         if self.trainer.accelerator.is_main_process:
             self.vllm_client.reset_prefix_cache()
@@ -199,124 +196,6 @@ class EvaluationCallback(TrainerCallback):
         score = self.metric.compute(references=labels, predictions=generations)
         return score
 
-    def samples_generate_vllm(self, steps):
-        """
-        prompts:
-        labels:
-        """
-        # First, have main process load weights if needed
-        if steps != self._last_loaded_step:
-            self._move_model_to_vllm()
-            self._last_loaded_step = steps
-        # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
-        # all_prompts_text = gather_object(prompts)
-        if self.trainer.accelerator.is_main_process:
-            # data process
-            prompts = self.metric.get_prompts(self.sample_dataset, self.trainer.processing_class,
-                                              self.prompts_apply_chat)
-            labels = self.metric.get_labels(self.sample_dataset)
-
-            # todo: with profiling_context(self, "vLLM.generate"):  上下文时间处理
-            start_time = time.time()
-            completion_ids = self.vllm_client.generate(
-                prompts=prompts,
-                n=self.gen_config.num_generation,
-                repetition_penalty=self.gen_config.repetition_penalty,
-                temperature=self.gen_config.temperature,
-                top_p=self.gen_config.top_p,
-                top_k=self.gen_config.top_k,
-                min_p=self.gen_config.min_p,
-                max_tokens=self.gen_config.max_new_tokens
-            )
-            end_time = time.time()  # 记录 _generate_completions 结束时间
-            generation_time = end_time - start_time  # 计算生成耗时
-            print(f"\nProcess main: Generation time: {generation_time:.4f} seconds")
-
-            tokenizer = self.trainer.processing_class
-            # tokenizer.padding_side = "left"
-            completions = tokenizer.batch_decode(completion_ids)  # --> List[str]
-            generations = self.metric.extract_generation(completions)
-            score = self.metric.compute(references=labels, predictions=generations)
-        else:
-            score = None
-        return score
-        # else:
-        #     completion_ids = [None] * len(prompts)
-        #     # Broadcast the completions from the main process to all processes, ensuring each process receives its
-        #     # corresponding slice.
-        # completion_ids = broadcast_object_list(completion_ids, from_process=0)
-        # process_slice = slice(
-        #     self.trainer.accelerator.process_index * len(prompts),
-        #     (self.trainer.accelerator.process_index + 1) * len(prompts),
-        # )
-        # completion_ids = completion_ids[process_slice]
-        #
-        # tokenizer = self.trainer.processing_class
-        # tokenizer.padding_side = "left"
-        # completions = tokenizer.batch_decode(completion_ids)
-        # generations = [[reason_post_process(c, i)] for i, c in enumerate(completions)]
-        # 处理输出表格数据
-        # if self.trainer.accelerator.is_main_process:
-        #     global_step = [str(steps)] * len(prompts)
-        #     data = [[global_step[i], prompts[i], completions[i]] for i in range(len(prompts))]
-        #     self.table.extend(data)
-        #     table = pd.DataFrame(columns=["step", "prompt", "completion"], data=self.table)
-        #     wandb.log({"completions": table})
-
-        # score = self.metric.compute(references=labels, predictions=generations)
-        # return score
-
-    def samples_generate(self, examples, steps):
-        # records_table = wandb.Table(columns=["prompt", "generation"] + list(self.gen_config.to_dict().keys()))
-        labels = [example['message'][1]['content'] for example in examples]
-
-        prompts_split = examples['message']
-        prompts = []
-        for lis in prompts_split:
-            prompts.append('补全下面代码，将最终题目和答案返回在代码框中\n' + lis[0]['content'])
-        prompts = ['补全下面代码，将最终题目和答案返回在代码框中\n' + prompt for prompt in prompts]
-
-        tokenizer = self.trainer.processing_class
-        tokenizer.padding_side = "left"
-        accelerator = self.trainer.accelerator
-        model = self.trainer.model_wrapped
-        start_time = time.time()
-        # todo: 需要fix,目前只是简单的设置几个参数
-        generation_config = GenerationConfig(
-            max_new_tokens=self.gen_config.max_new_tokens, do_sample=self.gen_config.do_sample,
-            temperature=self.gen_config.temperature
-        )
-        completions = _generate_completions(
-            prompts,
-            model=model,
-            tokenizer=tokenizer,
-            accelerator=accelerator,
-            generation_config=generation_config,
-            batch_size=self.batch_size,
-            gather_deepspeed3_params=self.gather_deepspeed3_params
-        )
-        end_time = time.time()  # 记录 _generate_completions 结束时间
-        generation_time = end_time - start_time  # 计算生成耗时
-
-        generations = [[reason_post_process(c, i)] for i, c in enumerate(completions)]
-        print(f"Process {accelerator.process_index}: Generation time: {generation_time:.4f} seconds")
-
-        # 处理输出表格数据
-        if self.trainer.accelerator.is_main_process:
-            # global_step = [str(steps)] * len(prompts) config = list(self.gen_config.to_dict().values()) * len(
-            # prompts) data = list(zip(global_step, prompts, completions, config)) self.table.extend(data) table =
-            # pd.DataFrame(columns=["step", "prompt", "completion"] + list(self.gen_config.to_dict().keys()),
-            # data=self.table) wandb.log({"completions": table})
-            global_step = [str(steps)] * len(prompts)
-            config_keys = list(self.gen_config.to_dict().keys())
-            config_values = list(self.gen_config.to_dict().values())
-            data = [[global_step[i], prompts[i], completions[i]] + config_values for i in range(len(prompts))]
-            self.table.extend(data)
-            table = pd.DataFrame(columns=["step", "prompt", "completion"] + config_keys, data=self.table)
-            wandb.log({"completions": table})
-
-        score = self.metric.compute(references=labels, predictions=generations)
-        return score
 
     def save_best_metric_model(self, args, state):
         # Save model checkpoint
@@ -391,7 +270,7 @@ class EvaluationCallback(TrainerCallback):
         if self.trainer.accelerator.is_main_process:
             # 仅主进程决定是否保存
             if len(self.best_checkpoints) < self.max_checkpoints or (metric_value > self.best_checkpoints[
-                0].metric_value and state.global_step % args.save_steps != 0):
+                0].metric_value and state.global_step % args.save_steps!=0):
                 save_flag = True
             else:
                 save_flag = False
@@ -403,9 +282,9 @@ class EvaluationCallback(TrainerCallback):
 
         if save_flag:
             checkpoint_path = self.save_best_metric_model(args, state)
-            # if self.trainer.accelerator.is_main_process:
+            #if self.trainer.accelerator.is_main_process:
             checkpoint_info = CheckpointInfo(step=state.global_step, metric_value=metric_value,
-                                             path=checkpoint_path)
+                                            path=checkpoint_path)
             heapq.heappush(self.best_checkpoints, checkpoint_info)
             if len(self.best_checkpoints) > self.max_checkpoints:
                 worst_checkpoint = heapq.heappop(self.best_checkpoints)
@@ -424,9 +303,7 @@ class EvaluationCallback(TrainerCallback):
 
         # todo: 改成字典，返回多个指标可视化，选其中一个或者混合作为保存指标？ use_vllm=False的逻辑？
         custom_score = self.samples_generate_vllm(state.global_step) if self.use_vllm else None
-        if self.trainer.accelerator.is_main_process:
-            wandb.log({"custom_score": custom_score, "step": state.global_step})
-        # self.trainer.log({"custom_score": custom_score, "step": state.global_step})
+        self.trainer.log({"custom_score": custom_score, "step": state.global_step})
 
         self.update_best_checkpoints(args, state, custom_score)
         # Save the last logged step, so we don't log the same completions multiple times

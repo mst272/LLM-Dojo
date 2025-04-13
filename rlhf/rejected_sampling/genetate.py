@@ -18,6 +18,7 @@ class Args:
     save_filename: str = "completions.jsonl"
     auto_adapt: bool = True  # if apply chat template
     system: str = ''  # chat template default
+    chunk_size: int = 50000
 
 
 @dataclass
@@ -179,7 +180,8 @@ def main(args: Args, gen_args: GenerationArgs):
             table["reference_completion"].append(answer)
 
     print(f"Number prompts with identical completions: {num_prompt_with_identical_completions}")
-    save_jsonl(args.save_filename, table)
+    # save_jsonl(args.save_filename, table)
+    save_jsonl_in_chunks_to_files(args.save_filename, table, args.chunk_size)
 
 
 if __name__ == "__main__":

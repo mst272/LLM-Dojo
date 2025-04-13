@@ -92,23 +92,6 @@ class CodeEvalMetric(BaseMetric):
                 print(f"Error during computation: {str(e)}")
                 raise e
 
-    # def compute(self, predictions: List[List[str]], references: List[str]) -> float:
-    #     """
-    #     Compute python code evaluation metrics
-    #
-    #     Args:
-    #         predictions: A list of lists, where each sublist contains predicted code strings.
-    #         references: List of reference code strings.
-    #
-    #     Returns:
-    #         float pass@1
-    #     """
-    #     pass_at_k, results = self.metric.compute(
-    #         predictions=predictions,
-    #         references=references,
-    #         k=[1]
-    #     )
-    #     return float(pass_at_k["pass@1"])
 
     def extract_generation(self, completions: List[str]):
         """
@@ -137,11 +120,14 @@ class CodeEvalMetric(BaseMetric):
 
     def get_prompts(self, test_datasets: Dataset, tokenizer, prompts_apply_chat) -> List[str]:
         if prompts_apply_chat:
-            pass
+            prompts = [test_dataset['prompt'] for test_dataset in test_datasets]
+            messages = [[{"role": "user", "content": prompt}] for prompt in prompts]
+            res = [tokenizer.apply_chat_template(message, tokenize=False,add_generation_prompt=True) for message in messages]
+            return res
+
         else:
-            pre_instruct = '补全下面代码，将最终题目和答案返回在代码框中\n'
-            prompts = [pre_instruct + test_dataset['prompt'] for test_dataset in test_datasets]
-        return prompts
+            prompts = [test_dataset['prompt'] for test_dataset in test_datasets]
+            return prompts
 
 
 class ExactMatchMetric(BaseMetric):
