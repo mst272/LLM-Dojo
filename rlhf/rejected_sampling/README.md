@@ -19,5 +19,11 @@ jsonl格式，包含如下字段:
 
 采用分块存储，最终生成文件数量为原文件的n倍(生成n个回答)的字段包括：
 - messages: 可以直接输入训练且apply_chat_template的messages格式，其中每个assistant为n个生成中的一个
+- model_completion: 模型本次生成的结果
 - 
-- 
+
+
+## 2、Rejected sampling评测阶段
+
+目前只支持通过api进行评测选择，传统的classification模型几乎用不到了，所以就进行了去除。
+

@@ -102,13 +102,6 @@ Identify the preferred snippet or rank them if applicable.
         snippets_section += f"\n### Code {label}:\n{response}\n"  # 每个代码块前后加换行
 
     # 3. 构建模板的静态结尾部分
-    #    可以根据需要调整结尾，例如要求更详细的分析或排名
-    #     footer = """
-    # Code Analysis (for each snippet):
-
-    # Ranking/Preference (e.g., B > A > C, or B is preferred):
-    # Preferred Code (Output only the single letter label of the most preferred code snippet below this line):
-    # """
     footer = """
 Code Analysis (Provide a brief analysis for each snippet, discussing its pros and cons regarding efficiency, readability, and best practices):
 
