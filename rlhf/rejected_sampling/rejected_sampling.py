@@ -323,36 +323,35 @@ def _save_chunk_to_jsonl(chunk: List[dict], output_filename: str) -> bool:
         return False
 
 
+def save_results_in_chunks(completions: List[dict], output_prefix: str = 'output', chunksize: int = 1000):
+    """
+    将处理结果按 chunksize 分块保存为多个 JSONL 文件 (使用 orjson)。
+
+    Args:
+        completions: 处理后的完整数据列表。
+        output_prefix: 输出文件名的前缀。
+        chunksize: 每个文件保存的数据条数。
+    """
+    # 提取目录路径
+    output_dir = os.path.dirname(output_prefix)
+    # 如果目录不存在，则创建目录
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+    num_chunks = (len(completions) + chunksize - 1) // chunksize
+    for i in range(num_chunks):
+        start_index = i * chunksize
+        end_index = min((i + 1) * chunksize, len(completions))
+        chunk = completions[start_index:end_index]
+        output_filename = f"{output_prefix}_part_{i + 1}.jsonl"
+        if _save_chunk_to_jsonl(chunk, output_filename):
+            print(f"已保存 chunk {i + 1} 到文件: {output_filename}")
+
+
 if __name__ == "__main__":
     completions = load_completions('/rejected')
     # completions = completions[:10]
     processed_data = asyncio.run(process_comparisons_async(completions, 3, 60))
     output_file = './v3_eval/v3eval'
-
-
-    def save_results_in_chunks(completions: List[dict], output_prefix: str = 'output', chunksize: int = 1000):
-        """
-        将处理结果按 chunksize 分块保存为多个 JSONL 文件 (使用 orjson)。
-
-        Args:
-            completions: 处理后的完整数据列表。
-            output_prefix: 输出文件名的前缀。
-            chunksize: 每个文件保存的数据条数。
-        """
-        # 提取目录路径
-        output_dir = os.path.dirname(output_prefix)
-        # 如果目录不存在，则创建目录
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir, exist_ok=True)
-
-        num_chunks = (len(completions) + chunksize - 1) // chunksize
-        for i in range(num_chunks):
-            start_index = i * chunksize
-            end_index = min((i + 1) * chunksize, len(completions))
-            chunk = completions[start_index:end_index]
-            output_filename = f"{output_prefix}_part_{i + 1}.jsonl"
-            if _save_chunk_to_jsonl(chunk, output_filename):
-                print(f"已保存 chunk {i + 1} 到文件: {output_filename}")
-
 
     save_results_in_chunks(processed_data, output_file, 16000)
