@@ -33,9 +33,9 @@ LLM-Dojo使用简洁且易阅读的代码构建LLM、VLM模型训练、RLHF框�
 - [致谢](#-致谢)
 
 ## 📖 Latest News
+- [2025-04-18] 拒绝采样实现，由generate部分和评测部分组成，支持API作为评价模型，具体可见[Rejected Sampling](./rlhf/rejected_sampling/README.md)，详细文档解释尚未完成。
 - [2025-04-13] 🚀训练中评测，使用vllm大幅提升训练中模型生成速度，具体可见[Predict with generate](./utils/eval/README.md)。详细文档解释与优化正在进行。
 - [2024-12-31] 支持多模态训练，可见[多模态训练(VLM)](#多模态训练vlm)
-- [2024-11-06] 增加RLHF KTO训练方法
 - [2024-11-06] 重构RLHF，具体可见目录中RLHF训练框架部分
 - [2024-10-31] 添加auto_adapt参数控制是否自动适配template、更新优化DPO训练(迁移至RLHF目录下)
 - [2024-10-15] 增加知识蒸馏训练方法。可见[知识蒸馏](./rlhf/README.md)
