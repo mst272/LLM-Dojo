@@ -16,3 +16,4 @@ datasets
 trl
 wandb
 PIL
+vllm==0.7.2

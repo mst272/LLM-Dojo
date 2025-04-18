@@ -226,6 +226,23 @@ def get_reward(
     )
 
 
+def find_all_linear_names(model):
+    """
+    找出所有全连接层，为所有全连接添加adapter
+    """
+    cls = nn.Linear
+    lora_module_names = set()
+    for name, module in model.named_modules():
+        if isinstance(module, cls):
+            names = name.split('.')
+            lora_module_names.add(names[-1])
+
+    if 'lm_head' in lora_module_names:  # needed for 16-bit
+        lora_module_names.remove('lm_head')
+    lora_module_names = list(lora_module_names)
+    return lora_module_names
+
+
 def is_right_apply_chat(tokenizer, prompt: List[Dict[str, str]], assistant_content: List[Dict[str, str]]) -> bool:
     """
     Checks if the assistant's content is correctly applied to the prompt in a chat template.
@@ -274,20 +291,3 @@ def fix_chat_template_if_needed(tokenizer, prompt: List[Dict[str, str]], chosen:
     fixed_chosen = conversation_chosen[start_position:]
     fixed_rejected = conversation_rejected[start_position:]
     return fixed_prompt, fixed_chosen, fixed_rejected
-
-
-def find_all_linear_names(model):
-    """
-    找出所有全连接层，为所有全连接添加adapter
-    """
-    cls = nn.Linear
-    lora_module_names = set()
-    for name, module in model.named_modules():
-        if isinstance(module, cls):
-            names = name.split('.')
-            lora_module_names.add(names[-1])
-
-    if 'lm_head' in lora_module_names:  # needed for 16-bit
-        lora_module_names.remove('lm_head')
-    lora_module_names = list(lora_module_names)
-    return lora_module_names

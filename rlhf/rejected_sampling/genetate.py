@@ -18,6 +18,7 @@ class Args:
     save_filename: str = "completions.jsonl"
     auto_adapt: bool = True  # if apply chat template
     system: str = ''  # chat template default
+    chunk_size: int = 50000
 
 
 @dataclass
@@ -49,7 +50,7 @@ def load_datasets(data_files: str, shuffle: bool):
         datasets = concatenate_datasets(datasets)
     if shuffle:
         datasets = datasets.shuffle(seed=42)
-    return datasets
+    return datasets['train']
 
 
 def save_jsonl(save_filename: str, table: Dict[str, List]):
@@ -59,6 +60,28 @@ def save_jsonl(save_filename: str, table: Dict[str, List]):
         for i in range(len(table[first_key])):
             json.dump({key: table[key][i] for key in table}, outfile)
             outfile.write("\n")
+
+
+def save_jsonl_in_chunks_to_files(base_filename: str, table: Dict[str, List], chunksize: int):
+    """
+    将字典数据按指定的 chunksize 分块保存为多个 JSONL 文件。
+
+    Args:
+        base_filename: 保存的文件名的基本名称（不包含 chunk 编号）。
+        table: 包含数据的字典，其中 values 是等长的列表。
+        chunksize: 每个 chunk 文件保存的行数。
+    """
+    first_key = list(table.keys())[0]
+    num_rows = len(table[first_key])
+    os.makedirs(os.path.dirname(base_filename), exist_ok=True)
+    chunk_number = 0
+    for i in range(0, num_rows, chunksize):
+        chunk_number += 1
+        save_filename = f"{base_filename}_chunk_{chunk_number}.jsonl"
+        with open(save_filename, "w") as outfile:
+            for j in range(i, min(i + chunksize, num_rows)):
+                json.dump({key: table[key][j] for key in table}, outfile)
+                outfile.write("\n")
 
 
 def generate_with_vllm(model_name_or_path: str, prompt_token_ids: List[int], gen_args: GenerationArgs):
@@ -100,8 +123,8 @@ def generate_with_vllm(model_name_or_path: str, prompt_token_ids: List[int], gen
 
 def tokenize(dataset: Dataset, auto_adapt: bool, system: str, tokenizer):
     def tokenize_fn(row):
-        answer = row['answer']
-        prompt = row['prompt']
+        answer = row['answer'] if 'answer' in row else row['messages'][1]['content']
+        prompt = row['prompt'] if 'prompt' in row else row['messages'][0]['content']
         messages = [
             {"role": "user", "content": prompt}
         ]
@@ -115,8 +138,8 @@ def tokenize(dataset: Dataset, auto_adapt: bool, system: str, tokenizer):
         return {"input_ids": outputs, "prompt": prompt, "answer": answer}
 
     def tokenize_fn_origin(row):
-        prompt = row['prompt']
-        answer = row['answer']
+        prompt = row['prompt'] if 'prompt' in row else row['messages'][0]['content']
+        answer = row['answer'] if 'answer' in row else row['messages'][1]['content']
         outputs = tokenizer.encode(prompt)
         return {"input_ids": outputs, "prompt": prompt, "answer": answer}
 
@@ -157,7 +180,8 @@ def main(args: Args, gen_args: GenerationArgs):
             table["reference_completion"].append(answer)
 
     print(f"Number prompts with identical completions: {num_prompt_with_identical_completions}")
-    save_jsonl(args.save_filename, table)
+    # save_jsonl(args.save_filename, table)
+    save_jsonl_in_chunks_to_files(args.save_filename, table, args.chunk_size)
 
 
 if __name__ == "__main__":

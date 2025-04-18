@@ -66,7 +66,9 @@ class MultiRoundDataProcess(Dataset):
         # 开始自动判断并适配chat template
         data = self.data_list[item]
         data = json.loads(data)
-        message = data['message']
+        # message = data['message']
+        # fix, message will be removed later
+        message = data.get('messages', data.get('message'))
 
         input_ids = []
         target_mask = []

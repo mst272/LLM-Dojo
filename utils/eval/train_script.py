@@ -27,7 +27,7 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig, Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
 from transformers.trainer_callback import ExportableState
 import evaluate
-from eval_accuracy import CodeEvalMetric
+from eval_metric import CodeEvalMetric
 from utils import MultiRoundDataProcess, SftDataCollator
 from callback import EvaluationCallback
 
