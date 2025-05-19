@@ -7,7 +7,7 @@ import time
 from typing import List, Optional
 from utils.eval.configs import GenerationConfig
 import deepspeed
-from accelerate.utils import broadcast_object_list, gather, gather_object, is_peft_model,
+from accelerate.utils import broadcast_object_list, gather, gather_object, is_peft_model
 import pandas as pd
 from trl.import_utils import is_deepspeed_available, is_rich_available, is_vllm_available
 from utils.eval.eval_utils import _generate_completions, reason_post_process
@@ -150,6 +150,48 @@ class EvaluationCallback(TrainerCallback):
         if self.trainer.accelerator.is_main_process:
             self.vllm_client.reset_prefix_cache()
 
+    def samples_generate_vllm(self, steps):
+        """
+        prompts:
+        labels:
+        """
+        # First, have main process load weights if needed
+        if steps != self._last_loaded_step:
+            self._move_model_to_vllm()
+            self._last_loaded_step = steps
+        # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
+        # all_prompts_text = gather_object(prompts)
+        if self.trainer.accelerator.is_main_process:
+            # data process
+            prompts = self.metric.get_prompts(self.sample_dataset, self.trainer.processing_class,
+                                              self.prompts_apply_chat)
+            labels = self.metric.get_labels(self.sample_dataset)
+
+            # todo: with profiling_context(self, "vLLM.generate"):  上下文时间处理
+            start_time = time.time()
+            completion_ids = self.vllm_client.generate(
+                prompts=prompts,
+                n=self.gen_config.num_generation,
+                repetition_penalty=self.gen_config.repetition_penalty,
+                temperature=self.gen_config.temperature,
+                top_p=self.gen_config.top_p,
+                top_k=self.gen_config.top_k,
+                min_p=self.gen_config.min_p,
+                max_tokens=self.gen_config.max_new_tokens
+            )
+            end_time = time.time()  # 记录 _generate_completions 结束时间
+            generation_time = end_time - start_time  # 计算生成耗时
+            print(f"\nProcess main: Generation time: {generation_time:.4f} seconds")
+
+            tokenizer = self.trainer.processing_class
+            # tokenizer.padding_side = "left"
+            completions = tokenizer.batch_decode(completion_ids)  # --> List[str]
+            generations = self.metric.extract_generation(completions)
+            score = self.metric.compute(references=labels, predictions=generations)
+        else:
+            score = None
+        return score
+
     def samples_generate_split_between_processes(self, steps):
         """
         if model very large, maybe OOM.
@@ -195,7 +237,6 @@ class EvaluationCallback(TrainerCallback):
 
         score = self.metric.compute(references=labels, predictions=generations)
         return score
-
 
     def save_best_metric_model(self, args, state):
         # Save model checkpoint
@@ -270,7 +311,7 @@ class EvaluationCallback(TrainerCallback):
         if self.trainer.accelerator.is_main_process:
             # 仅主进程决定是否保存
             if len(self.best_checkpoints) < self.max_checkpoints or (metric_value > self.best_checkpoints[
-                0].metric_value and state.global_step % args.save_steps!=0):
+                0].metric_value and state.global_step % args.save_steps != 0):
                 save_flag = True
             else:
                 save_flag = False
@@ -282,9 +323,9 @@ class EvaluationCallback(TrainerCallback):
 
         if save_flag:
             checkpoint_path = self.save_best_metric_model(args, state)
-            #if self.trainer.accelerator.is_main_process:
+            # if self.trainer.accelerator.is_main_process:
             checkpoint_info = CheckpointInfo(step=state.global_step, metric_value=metric_value,
-                                            path=checkpoint_path)
+                                             path=checkpoint_path)
             heapq.heappush(self.best_checkpoints, checkpoint_info)
             if len(self.best_checkpoints) > self.max_checkpoints:
                 worst_checkpoint = heapq.heappop(self.best_checkpoints)
