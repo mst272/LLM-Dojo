@@ -12,10 +12,16 @@ class SftDataCollator:
         self.pad_token_id = tokenizer.pad_token_id
 
     def __call__(self, batch: List[Dict[str, Any]]) -> Dict[str, Any]:
-        # 找出最大长度
-        length = [len(x['input_ids']) for x in batch if x['input_ids'] is not None]
-        # 每个batch中的最大长度
-        max_batch_length = min(self.max_length, max(length))
+        # 先找这个 batch 里，所有有效样本的 input_ids 长度，用来算本 batch 的 max_batch_length
+        valid_lengths = []
+        for x in batch:
+            if x["input_ids"] is not None:
+                valid_lengths.append(len(x["input_ids"]))
+        if len(valid_lengths) == 0:
+            # 如果整个 batch 都是 None，设置最小长度为了后续padding
+            max_batch_length = 1
+        else:
+            max_batch_length = min(self.max_length, max(valid_lengths))
 
         input_ids_batch, attention_mask_batch, target_mask_batch = [], [], []
 
@@ -24,8 +30,11 @@ class SftDataCollator:
             attention_mask = x['attention_mask']
             target_mask = x['target_mask']
             if input_ids is None:
-                logger.info('some input_ids is None,and now continue')
-                continue
+                # 把无效样本当成 []，让后面被 padding 成全 pad
+                input_ids = []
+                attention_mask = []
+                target_mask = []
+                logger.info("遇到 input_ids=None，构造一个全 pad 的 dummy 样本")
             padding_len = max_batch_length - len(input_ids)
             # 开始padding
             input_ids += [self.pad_token_id] * padding_len
