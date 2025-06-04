@@ -171,9 +171,9 @@ class MultiRoundDataProcess(Dataset):
             logger.exception(f"处理第 {item} 项时发生意外错误。 数据: {data}。 错误: {e}")
             # 根据策略返回 None 或重新抛出异常
             inputs = {
-                "input_ids": [],
-                "attention_mask": [],
-                "target_mask": []
+                "input_ids": None,
+                "attention_mask": None,
+                "target_mask": None
             }  # 返回 None 以允许训练在过滤后继续
             return inputs
 
