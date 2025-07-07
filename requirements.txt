@@ -16,5 +16,6 @@ datasets
 trl
 wandb
 PIL
-pyarrow
 vllm==0.7.2
+swanlab
+pyarrow
