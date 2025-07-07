@@ -9,59 +9,95 @@ from transformers import PreTrainedTokenizerBase
 
 
 class MultiRoundDataProcess(Dataset):
-    def __init__(self, file, tokenizer: PreTrainedTokenizerBase, max_length: int, auto_adapt=True):
+    """
+    支持读取：
+      1. 单个 .jsonl / .parquet
+      2. 目录下若干 .jsonl / .parquet 文件
+    读取后，将每条记录（dict）存入 self.data_list
+
+    auto_adapt为True时通过apply_chat自动适配单轮和多轮的labels，False时不进行apply_chat，直接拼接内容。(Qwen3多轮暂不支持auto_adapt，单轮可以)
+    """
+
+    def __init__(self, file_or_dir, tokenizer: PreTrainedTokenizerBase, max_length: int, auto_adapt=True):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.data_list = []  # 初始化数据列表
         self.auto_adapt = auto_adapt
 
-        # --- 文件读取逻辑 ---
-        if not os.path.exists(file):
-            raise ValueError(f"路径 '{file}' 不存在")
-        # logger.info(f"开始从 '{file}' 加载数据...")
-        if os.path.isfile(file):
-            if not file.endswith('.jsonl'):
-                raise ValueError(f"文件 '{file}' 不是 JSONL 文件")
-            self._read_single_file(file)
-        else:
-            self._read_directory(file)
-        if not self.data_list:
-            raise ValueError(f"未能从 '{file}' 读取到任何数据")
-        # logger.info(f"从 '{file}' 加载了 {len(self.data_list)} 条数据。")
-        # --- 文件读取逻辑结束 ---
+        # 文件读取逻辑
+        if not os.path.exists(file_or_dir):
+            raise ValueError(f"路径 '{file_or_dir}' 不存在")
 
-    def _read_single_file(self, file_path):
-        """读取单个 JSONL 文件，将每行解析为字典并添加到 data_list"""
+        if os.path.isfile(file_or_dir):
+            self._dispatch_single(file_or_dir)
+        else:
+            self._read_directory(file_or_dir)
+
+        if not self.data_list:
+            raise ValueError(f"未能从 '{file_or_dir}' 读取到任何数据")
+
+    SUPPORTED_EXTS = {".jsonl", ".parquet"}
+
+    def _dispatch_single(self, file_path: str):
+        """根据扩展名将单文件分发到对应读取函数"""
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext not in self.SUPPORTED_EXTS:
+            raise ValueError(f"不支持的文件类型 '{ext}' (仅支持 .jsonl / .parquet)")
+        if ext == ".jsonl":
+            self._read_single_jsonl(file_path)
+        else:  # .parquet
+            self._read_single_parquet(file_path)
+
+    # 读取单个jsonl文件
+    def _read_single_jsonl(self, file_path: str):
         try:
-            with open(file_path, 'r', encoding='utf8') as f:
-                for i, line in enumerate(f):
+            with open(file_path, "r", encoding="utf-8") as f:
+                for i, line in enumerate(f, 1):
+                    if not line.strip():
+                        continue
                     try:
-                        # 直接存储解析后的字典
                         self.data_list.append(json.loads(line))
                     except json.JSONDecodeError as e:
                         logger.error(
-                            f"解析文件 {file_path} 第 {i + 1} 行时发生 JSON 错误: {e}。 行内容: '{line[:100]}...'")
-                        # 策略：跳过错误行 或 抛出异常中止整个加载过程
-                        continue  # 选择跳过当前行
+                            f"[JSONL] 解析 {file_path}:{i} 失败 -> {e}.  行内容: '{line[:100]}...'"
+                        )
         except Exception as e:
-            logger.error(f"读取文件 {file_path} 失败: {str(e)}")
-            raise  # 抛出异常
+            logger.error(f"[JSONL] 读取文件 {file_path} 失败: {e}")
+            raise
 
-    def _read_directory(self, dir_path):
-        """读取目录中的所有 JSONL 文件"""
-        jsonl_files = [f for f in os.listdir(dir_path) if f.endswith('.jsonl')]
-        if not jsonl_files:
-            raise ValueError(f"目录 '{dir_path}' 中未找到 JSONL 文件")
-        # logger.info(f"在目录 '{dir_path}' 中找到 {len(jsonl_files)} 个 JSONL 文件。")
-        for file_name in jsonl_files:
-            file_path = os.path.join(dir_path, file_name)
-            logger.info(f"正在处理文件: {file_path}")
+    def _read_single_parquet(self, file_path: str):
+        """
+        将 parquet 的每一行转成 dict，并追加到 data_list
+        """
+        try:
+            df = pd.read_parquet(file_path)  # DataFrame → List[dict]
+            records = df.to_dict(orient="records")
+            if not isinstance(records, list):
+                raise ValueError("读取 parquet 后未得到记录列表")
+            self.data_list.extend(records)
+        except Exception as e:
+            logger.error(f"[Parquet] 读取文件 {file_path} 失败: {e}")
+            raise
+
+    def _read_directory(self, dir_path: str):
+        """
+        遍历目录，读取所有 .jsonl / .parquet
+        """
+        files = [
+            f
+            for f in os.listdir(dir_path)
+            if os.path.splitext(f)[1].lower() in self.SUPPORTED_EXTS
+        ]
+        if not files:
+            raise ValueError(f"目录 '{dir_path}' 中未找到 .jsonl / .parquet 文件")
+
+        for file_name in files:
+            path = os.path.join(dir_path, file_name)
+            logger.info(f"正在处理文件: {path}")
             try:
-                self._read_single_file(file_path)
+                self._dispatch_single(path)
             except Exception as e:
-                # 记录警告并跳过该文件，继续处理其他文件
-                logger.warning(f"处理文件 {file_path} 时发生错误，已跳过: {str(e)}")
-                continue
+                logger.warning(f"跳过文件 {path}，原因: {e}")
 
     def __len__(self):
         # data_list 存储的是字典
@@ -71,65 +107,66 @@ class MultiRoundDataProcess(Dataset):
         # data 是已经加载的字典
         data = self.data_list[item]
         try:
-            # messages = data['messages']
             messages = data.get('messages', data.get('message'))
+            # 自动适配chat-template
             if self.auto_adapt:
                 # 基本的数据有效性检查
                 if not isinstance(messages, list) or not messages:
                     raise ValueError("无效或空的 'messages' 列表")
 
-                # --- 标准 SFT 检查：确保最后一条消息来自助手 ---
-                if messages[-1]['role'] != 'assistant':
-                    # 对于不符合格式的数据，可以选择跳过或报错
-                    logger.warning(
-                        f"跳过第 {item} 项：最后一条消息的角色是 '{messages[-1]['role']}'，应为 'assistant'。数据: {messages}")
-                    # 报错返回空
-                    raise ValueError(f"第 {item} 项数据格式错误：最后一条消息角色应为 'assistant'。")
-                # --- 检查结束 ---
-
-                # --- 使用 apply_chat_template 进行分词 ---
-
-                full_input_ids_untruncated = self.tokenizer.apply_chat_template(
+                # --- 开始: 自动单轮多轮label设置的逻辑 ---
+                # 1、获取完整的 token IDs
+                full_input_ids = self.tokenizer.apply_chat_template(
                     messages,
+                    add_generation_prompt=False,
                     add_special_tokens=False,
                     return_dict=True,
                     return_tensors=None
                 )['input_ids']
 
-                # 2. 分词提示部分 (不包括最后一条助手消息)
-                if len(messages) > 1:
-                    prompt_messages = messages[:-1]  # 去掉最后一条助手消息
-                    # 使用 add_generation_prompt=True
-                    prompt_tokenized = self.tokenizer.apply_chat_template(
-                        prompt_messages,
-                        add_special_tokens=False,
-                        add_generation_prompt=True,
-                        return_dict=True,
-                        return_tensors=None,
-                    )
-                    prompt_ids = prompt_tokenized['input_ids']
-                    prompt_len = len(prompt_ids)
-                else:
-                    raise ValueError("无效或空的 'messages' 列表")
+                # 2、迭代构建 labels (target_mask)
+                generated_labels = []
+                len_of_tokenized_so_far = 0
 
-                # --- 步骤 3: 校验前缀 ---
-                if not full_input_ids_untruncated[:prompt_len] == prompt_ids:
-                    logger.error(f"第 {item} 项出现前缀不匹配错误！(优化版)")
-                    logger.warning(f"跳过第 {item} 项：因前缀不匹配（可能是对话模板问题）。")
-                    raise ValueError(f"跳过第 {item} 项：因前缀不匹配（可能是对话模板问题）。")
-                # 提示部分为 0，助手回复部分为1
-                labels_untruncated = ([0] * prompt_len) + ([1] * len(full_input_ids_untruncated[prompt_len:]))
+                # 逐轮遍历消息，以确定每部分对应的标签
+                for i, msg in enumerate(messages):
+                    role = msg.get('role')
+                    if role in ['system', 'user']:
+                        # 编码到当前轮次为止的对话
+                        current_turn_ids = self.tokenizer.apply_chat_template(
+                            messages[:i + 1],
+                            add_generation_prompt=True,
+                            return_dict=True,
+                            add_special_tokens=False,
+                        )['input_ids']
+                    else:
+                        current_turn_ids = self.tokenizer.apply_chat_template(
+                            messages[:i + 1],
+                            add_generation_prompt=False,
+                            return_dict=True,
+                            add_special_tokens=False,
+                        )['input_ids']
 
-                # --- 步骤 5: 截断---
-                input_ids = full_input_ids_untruncated
-                labels = labels_untruncated
-                if len(input_ids) > self.max_length:
-                    # 截断 labels 以匹配 input_ids 的长度 (保留前面部分)
-                    input_ids = input_ids[:self.max_length]
-                    labels = labels[:self.max_length]
+                    # 计算当前这一轮消息（包括模板）引入的新 token 数量
+                    new_tokens_count = len(current_turn_ids) - len_of_tokenized_so_far
 
-                # --- 步骤 6: 创建 Attention Mask ---
-                # Attention mask 应与最终截断后的 input_ids 长度一致，值为 1
+                    if new_tokens_count <= 0:
+                        continue
+
+                    # 根据角色分配标签
+                    if role == 'assistant':
+                        generated_labels.extend([1] * new_tokens_count)
+                    else:  # 'user', 'system'
+                        generated_labels.extend([0] * new_tokens_count)
+
+                    # 更新已处理的 token 总长度
+                    len_of_tokenized_so_far = len(current_turn_ids)
+
+                # 3、截断到最大长度
+                input_ids = full_input_ids[:self.max_length]
+                labels = generated_labels[:self.max_length]
+
+                # 4、Attention Mask
                 attention_mask = [1] * len(input_ids)
 
                 if not (len(input_ids) == len(attention_mask) == len(labels)):
@@ -176,129 +213,6 @@ class MultiRoundDataProcess(Dataset):
                 "target_mask": None
             }  # 返回 None 以允许训练在过滤后继续
             return inputs
-
-
-# class MultiRoundDataProcess1(Dataset):
-#     def __init__(self, file, tokenizer, max_length, auto_adapt=True):
-#         self.tokenizer = tokenizer
-#         self.max_length = max_length
-#         self.data_list = []
-#         self.auto_adapt = auto_adapt
-#
-#         # 检查路径是否存在
-#         if not os.path.exists(file):
-#             raise ValueError(f"路径 '{file}' 不存在")
-#
-#         # 判断输入路径是文件还是目录
-#         if os.path.isfile(file):
-#             # 如果是单个文件，直接读取
-#             if not file.endswith('.jsonl'):
-#                 raise ValueError(f"文件 '{file}' 不是JSONL文件")
-#             self._read_single_file(file)
-#         else:
-#             # 如果是目录，读取所有JSONL文件
-#             self._read_directory(file)
-#         if not self.data_list:
-#             raise ValueError("没有读取到任何数据")
-#
-#     def __len__(self):
-#         return len(self.data_list)
-#
-#     def _read_single_file(self, file_path):
-#         """读取单个JSONL文件"""
-#         try:
-#             with open(file_path, 'r', encoding='utf8') as f:
-#                 self.data_list.extend(f.readlines())
-#         except Exception as e:
-#             # print(f"读取文件 {file_path} 时发生错误: {str(e)}")
-#             raise
-#
-#     def _read_directory(self, dir_path):
-#         """读取目录中的所有JSONL文件"""
-#         jsonl_files = [f for f in os.listdir(dir_path) if f.endswith('.jsonl')]
-#
-#         if not jsonl_files:
-#             raise ValueError(f"目录 '{dir_path}' 中没有找到JSONL文件")
-#
-#         for file_name in jsonl_files:
-#             file_path = os.path.join(dir_path, file_name)
-#             try:
-#                 self._read_single_file(file_path)
-#             except Exception as e:
-#                 # print(f"处理文件 {file_path} 时发生错误: {str(e)}")
-#                 continue
-#
-#     def __getitem__(self, item):
-#         # 开始自动判断并适配chat template
-#         data = self.data_list[item]
-#         data = json.loads(data)
-#         # message = data['message']
-#         # fix, message will be removed later
-#         message = data.get('messages', data.get('message'))
-#
-#         input_ids = []
-#         target_mask = []
-#
-#         if self.auto_adapt:
-#             # 使用 apply_chat_template 生成格式化文本
-#             text = self.tokenizer.apply_chat_template(message, tokenize=False)
-#             # 对整个文本进行分词
-#             input_ids = self.tokenizer.encode(text, add_special_tokens=False)
-#             # 初始化 target_mask 为全 0
-#             target_mask = [0] * len(input_ids)
-#             # 记录当前处理的 token 位置
-#             current_position = 0
-#             for conv in message:
-#                 if conv['role'] == 'assistant':
-#                     # 对助手消息内容进行分词
-#                     assistant_ids = self.tokenizer.encode(conv['content'], add_special_tokens=False)
-#                     # 在 input_ids[current_position:] 中查找 assistant_ids 的起始位置
-#                     position = find_sublist_start(input_ids[current_position:], assistant_ids)
-#                     if position == -1:
-#                         raise ValueError("Assistant message not found in input_ids")
-#                     # 计算在整个 input_ids 中的实际位置
-#                     actual_position = current_position + position
-#                     assistant_len = len(assistant_ids)
-#                     # 将 target_mask 中对应位置设置为 1
-#                     target_mask[actual_position:actual_position + assistant_len] = [1] * assistant_len
-#                     # 找到助手消息后的 EOS token 位置
-#                     eos_position = actual_position + assistant_len
-#                     if eos_position < len(input_ids):
-#                         # 检查下一个token是否为EOS token
-#                         next_token = input_ids[eos_position]
-#                         if next_token == self.tokenizer.eos_token_id:
-#                             # 将EOS token的target mask设为1
-#                             target_mask[eos_position] = 1
-#                             # 更新 current_position 到EOS token之后
-#                             current_position = eos_position + 1
-#                         else:
-#                             # 如果下一个不是EOS token，只更新到assistant内容之后
-#                             current_position = eos_position
-#         else:
-#             # 不使用 apply_chat_template，直接拼接内容
-#             for conv in message:
-#                 conv_ids = self.tokenizer.encode(conv['content'], add_special_tokens=False)
-#                 input_ids.extend(conv_ids)
-#                 if conv['role'] == 'assistant':
-#                     target_mask.extend([1] * len(conv_ids))
-#                 else:
-#                     target_mask.extend([0] * len(conv_ids))
-#
-#         # 对长度进行截断
-#         input_ids = input_ids[:self.max_length]
-#         target_mask = target_mask[:self.max_length]
-#         attention_mask = [1] * len(input_ids)
-#
-#         # 断言长度相等
-#         assert len(input_ids) == len(target_mask) == len(attention_mask)
-#
-#         inputs = {
-#             "input_ids": input_ids,
-#             "attention_mask": attention_mask,
-#             "target_mask": target_mask
-#         }
-#
-#         return inputs
 
 
 class DpoDataset(Dataset):
@@ -384,25 +298,6 @@ class DpoDataset(Dataset):
     # 适配DPOTrainer的接口
     def map(self, func, **kwargs):
         return self
-
-
-def find_sublist_start(main_list, sub_list):
-    """
-    find_sublist_start
-
-    Args:
-    main_list (list)
-    sub_list (list)
-    """
-    sub_len = len(sub_list)
-    main_len = len(main_list)
-    for i in range(main_len - sub_len + 1):
-        if main_list[i:i + sub_len] == sub_list:
-            return i
-        # 因为会有开头decode不一样的情况出现
-        elif main_list[i + 1:i + sub_len] == sub_list[1:]:
-            return i
-    return -1
 
 
 # datasets直接加载也可以，但考虑可能的错误自己构建一个作为备选方案
