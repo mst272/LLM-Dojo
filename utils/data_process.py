@@ -108,7 +108,10 @@ class MultiRoundDataProcess(Dataset):
 
     @staticmethod
     def fix_qwen3_labels(input_ids: List[int], labels: List[int]) -> None:
-        """若为 Qwen-3，将特殊 pattern 的 labels 置 0（就地修改）"""
+        """
+        若为 Qwen-3，将特殊 pattern 的 labels 置 0（就地修改）
+        即将assistant下面的<think>\n</think>\n不计入loss
+        """
         pat = [151667, 271, 151668, 271]
         plen = len(pat)
         limit = len(input_ids) - plen + 1
@@ -128,8 +131,8 @@ class MultiRoundDataProcess(Dataset):
             # 自动适配chat-template
             if self.auto_adapt:
                 # 基本的数据有效性检查
-                if not isinstance(messages, list) or not messages:
-                    raise ValueError("无效或空的 'messages' 列表")
+                # if not messages:
+                #     raise ValueError("无效或空的 'messages' 列表")
 
                 # --- 开始: 自动单轮多轮label设置的逻辑 ---
                 # 1、获取完整的 token IDs
