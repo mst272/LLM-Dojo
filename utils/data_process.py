@@ -24,6 +24,9 @@ class MultiRoundDataProcess(Dataset):
         self.data_list = []  # 初始化数据列表
         self.auto_adapt = auto_adapt
 
+        # —— 新增：识别是否 Qwen-3 —— #
+        self.is_qwen3 = self.is_qwen3_tokenizer(tokenizer)
+
         # 文件读取逻辑
         if not os.path.exists(file_or_dir):
             raise ValueError(f"路径 '{file_or_dir}' 不存在")
@@ -197,8 +200,8 @@ class MultiRoundDataProcess(Dataset):
                     logger.warning(f"跳过第 {item} 项：因最终长度不匹配。")
                     raise ValueError(f"跳过第 {item} 项：因最终长度不匹配。")
 
-                # —— 新增：Qwen-3 label 修正 —— #
-                if self.is_qwen3_tokenizer(self.tokenizer):
+                # Qwen-3 label 修正
+                if self.is_qwen3:
                     self.fix_qwen3_labels(input_ids, labels)
 
                 # --- 返回结果字典 ---
