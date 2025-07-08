@@ -99,6 +99,23 @@ class MultiRoundDataProcess(Dataset):
             except Exception as e:
                 logger.warning(f"跳过文件 {path}，原因: {e}")
 
+    @staticmethod
+    def is_qwen3_tokenizer(tokenizer) -> bool:
+        """根据tokenizer.__class__.__name__词表大小判断是否 Qwen-3的tokenizer"""
+        name = tokenizer.__class__.__name__
+        vocab_size = len(tokenizer.get_vocab())
+        return 'Qwen2TokenizerFast' == name and vocab_size == 151669
+
+    @staticmethod
+    def fix_qwen3_labels(input_ids: List[int], labels: List[int]) -> None:
+        """若为 Qwen-3，将特殊 pattern 的 labels 置 0（就地修改）"""
+        pat = [151667, 271, 151668, 271]
+        plen = len(pat)
+        limit = len(input_ids) - plen + 1
+        for i in range(limit):
+            if input_ids[i:i + plen] == pat:
+                labels[i:i + plen] = [0] * plen
+
     def __len__(self):
         # data_list 存储的是字典
         return len(self.data_list)
@@ -176,6 +193,10 @@ class MultiRoundDataProcess(Dataset):
                     logger.error(f"  Labels len: {len(labels)}")
                     logger.warning(f"跳过第 {item} 项：因最终长度不匹配。")
                     raise ValueError(f"跳过第 {item} 项：因最终长度不匹配。")
+
+                # —— 新增：Qwen-3 label 修正 —— #
+                if self.is_qwen3_tokenizer(self.tokenizer):
+                    self.fix_qwen3_labels(input_ids, labels)
 
                 # --- 返回结果字典 ---
                 inputs = {
