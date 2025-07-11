@@ -133,9 +133,11 @@ class MultiRoundDataProcess(Dataset):
             messages = data.get('messages', data.get('message'))
             # 自动适配chat-template
             if self.auto_adapt:
-                # 基本的数据有效性检查
-                # if not messages:
-                #     raise ValueError("无效或空的 'messages' 列表")
+                # 对于qwen3，去除掉数据中的system
+                if self.is_qwen3:
+                    if any(m.get("role") == "system" for m in messages):
+                        # 保留非-system 消息，顺序不变
+                        messages = [m for m in messages if m.get("role") != "system"]
 
                 # --- 开始: 自动单轮多轮label设置的逻辑 ---
                 # 1、获取完整的 token IDs
