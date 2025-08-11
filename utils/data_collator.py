@@ -34,7 +34,7 @@ class SftDataCollator:
                 input_ids = []
                 attention_mask = []
                 target_mask = []
-                logger.info("遇到 input_ids=None，构造一个全 pad 的 dummy 样本")
+                logger.warning("遇到 input_ids=None，构造一个全 pad 的 dummy 样本")
             padding_len = max_batch_length - len(input_ids)
             # 开始padding
             input_ids += [self.pad_token_id] * padding_len

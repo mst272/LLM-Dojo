@@ -99,6 +99,9 @@ def create_model(args, train_args):
 
     def load_model(model_kwargs):
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
+        if model.config.model_type == "qwen3_moe":
+            from transformers.models.qwen3_moe.modeling_qwen3_moe import Qwen3MoeSparseMoeBlock
+            deepspeed.utils.set_z3_leaf_modules(model, [Qwen3MoeSparseMoeBlock])
         return model
 
     if args.train_mode == 'qlora':
