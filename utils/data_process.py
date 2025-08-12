@@ -139,6 +139,19 @@ class MultiRoundDataProcess(Dataset):
                         # 保留非-system 消息，顺序不变
                         messages = [m for m in messages if m.get("role") != "system"]
 
+                # ========== ✨ 新增：Qwen3 的 多轮think 处理准备 ==========
+                # 记录“最后一个 assistant”的下标；若不存在则为 -1
+                last_asst_idx = -1
+                if self.is_qwen3:
+                    for idx, m in enumerate(messages):
+                        if m.get("role") == "assistant":
+                            last_asst_idx = idx
+                    # 计算模板插入的 think 块的 token 数
+                    THINK_TOKS = 4 if last_asst_idx > 2 else 0
+                else:
+                    THINK_TOKS = 0
+                # ====================================================
+
                 # --- 开始: 自动单轮多轮label设置的逻辑 ---
                 # 1、获取完整的 token IDs
                 full_input_ids = self.tokenizer.apply_chat_template(
@@ -172,8 +185,17 @@ class MultiRoundDataProcess(Dataset):
                             add_special_tokens=False,
                         )['input_ids']
 
+                    # ========== ✨ 新增：对“非最后一个 assistant”扣掉 think ==========
+                    current_len = len(current_turn_ids)
+                    if self.is_qwen3 and role == 'assistant' and i != last_asst_idx and THINK_TOKS > 0:
+                        # 对于切片 messages[:i+1]，模板会把当前 assistant 当作“最后一个”而插入 think，
+                        # 但在完整模板中它不是最后一个，需要扣掉这段多余的 token。
+                        current_len -= THINK_TOKS
+                    # ===============================================================
+
                     # 计算当前这一轮消息（包括模板）引入的新 token 数量
-                    new_tokens_count = len(current_turn_ids) - len_of_tokenized_so_far
+                    # new_tokens_count = len(current_turn_ids) - len_of_tokenized_so_far
+                    new_tokens_count = current_len - len_of_tokenized_so_far
 
                     if new_tokens_count <= 0:
                         continue
@@ -185,7 +207,8 @@ class MultiRoundDataProcess(Dataset):
                         generated_labels.extend([0] * new_tokens_count)
 
                     # 更新已处理的 token 总长度
-                    len_of_tokenized_so_far = len(current_turn_ids)
+                    # len_of_tokenized_so_far = len(current_turn_ids)
+                    len_of_tokenized_so_far = current_len
 
                 # 3、截断到最大长度
                 input_ids = full_input_ids[:self.max_length]
