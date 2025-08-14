@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 from loguru import logger
 from pathlib import Path
 import os
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
 from transformers import PreTrainedTokenizerBase
 
 
@@ -23,9 +23,9 @@ class MultiRoundDataProcess(Dataset):
         self.max_length = max_length
         self.data_list = []  # 初始化数据列表
         self.auto_adapt = auto_adapt
-
         # —— 新增：识别是否 Qwen-3 —— #
         self.is_qwen3 = self.is_qwen3_tokenizer(tokenizer)
+        # self.is_qwen3 = False
 
         # 文件读取逻辑
         if not os.path.exists(file_or_dir):
@@ -103,18 +103,20 @@ class MultiRoundDataProcess(Dataset):
                 logger.warning(f"跳过文件 {path}，原因: {e}")
 
     @staticmethod
-    def is_qwen3_tokenizer(tokenizer) -> bool:
+    def is_qwen3_tokenizer(tokenizer) -> str:
         """根据tokenizer.__class__.__name__词表大小判断是否 Qwen-3的tokenizer"""
         name = tokenizer.__class__.__name__
         vocab_size = len(tokenizer.get_vocab())
-        return 'Qwen2TokenizerFast' == name and vocab_size == 151669
+        tokenizer_model_max_length = tokenizer.model_max_length
+        if ('Qwen2TokenizerFast' == name) and (vocab_size == 151669) and (tokenizer_model_max_length == 1048576):
+            return 'qwen3coder'
+        elif ('Qwen2TokenizerFast' == name) and (vocab_size == 151669):
+            return 'qwen3'
+        return ''
 
     @staticmethod
     def fix_qwen3_labels(input_ids: List[int], labels: List[int]) -> None:
-        """
-        若为 Qwen-3，将特殊 pattern 的 labels 置 0（就地修改）
-        即将assistant下面的<think>\n</think>\n不计入loss
-        """
+        """若为 Qwen-3，将特殊 pattern 的 labels 置 0（就地修改）"""
         pat = [151667, 271, 151668, 271]
         plen = len(pat)
         limit = len(input_ids) - plen + 1
@@ -142,10 +144,11 @@ class MultiRoundDataProcess(Dataset):
                 # ========== ✨ 新增：Qwen3 的 多轮think 处理准备 ==========
                 # 记录“最后一个 assistant”的下标；若不存在则为 -1
                 last_asst_idx = -1
-                if self.is_qwen3:
-                    for idx, m in enumerate(messages):
-                        if m.get("role") == "assistant":
-                            last_asst_idx = idx
+
+                for idx, m in enumerate(messages):
+                    if m.get("role") == "assistant":
+                        last_asst_idx = idx
+                if self.is_qwen3 and self.is_qwen3 == 'qwen3':
                     # 计算模板插入的 think 块的 token 数
                     THINK_TOKS = 4 if last_asst_idx > 2 else 0
                 else:
@@ -194,7 +197,6 @@ class MultiRoundDataProcess(Dataset):
                     # ===============================================================
 
                     # 计算当前这一轮消息（包括模板）引入的新 token 数量
-                    # new_tokens_count = len(current_turn_ids) - len_of_tokenized_so_far
                     new_tokens_count = current_len - len_of_tokenized_so_far
 
                     if new_tokens_count <= 0:
@@ -202,12 +204,15 @@ class MultiRoundDataProcess(Dataset):
 
                     # 根据角色分配标签
                     if role == 'assistant':
-                        generated_labels.extend([1] * new_tokens_count)
+                        if self.is_qwen3 == 'qwen3':
+                            bit = 1 if i == last_asst_idx else 0
+                            generated_labels.extend([bit] * new_tokens_count)
+                        else:
+                            generated_labels.extend([1] * new_tokens_count)
                     else:  # 'user', 'system'
                         generated_labels.extend([0] * new_tokens_count)
 
                     # 更新已处理的 token 总长度
-                    # len_of_tokenized_so_far = len(current_turn_ids)
                     len_of_tokenized_so_far = current_len
 
                 # 3、截断到最大长度
