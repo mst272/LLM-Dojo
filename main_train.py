@@ -91,8 +91,7 @@ def create_model(args, train_args):
     torch_dtype = torch.bfloat16 if train_args.bf16 else torch.float32
     model_kwargs = dict(
         trust_remote_code=True,
-        torch_dtype=torch_dtype,
-        use_cache=False if train_args.gradient_checkpointing else True,  # The cache is only used for generation,
+        torch_dtype=torch_dtype
         # fix bug
         # device_map='auto'
     )
