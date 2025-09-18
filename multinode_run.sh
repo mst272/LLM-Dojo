@@ -6,7 +6,6 @@ conda info -e
 
 export SWANLAB_API_KEY='xx'
 
-
 export FORCE_TORCHRUN=1
 export NNODES=$PET_NNODES
 export NODE_RANK=$RANK
@@ -23,12 +22,6 @@ echo "NNODES=${NNODES} NODE_RANK=${NODE_RANK} MASTER_ADDR=${MASTER_ADDR} MASTER_
 export NCCL_SOCKET_IFNAME=eth0     # 指向 IB/40G网口
 export NCCL_IB_DISABLE=0            # 使用 RDMA
 export NCCL_P2P_DISABLE=0
-
-
-
-# # Debug 打印（可选，用于排查瓶颈）
-# export NCCL_DEBUG=INFO                  # 或 WARN；默认关闭可设空
-# export NCCL_ASYNC_ERROR_HANDLING=1      # 遇错不死锁
 
 
 

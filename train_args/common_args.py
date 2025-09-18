@@ -38,3 +38,5 @@ class CommonArgs:
     # 是否训练中评测
     use_eval_in_train: bool = False
     test_datasets_path: Optional[str] = None
+
+    use_flash_attention_2: bool = field(default=True, metadata={"help": "选择是否使用flash_attention_2"})

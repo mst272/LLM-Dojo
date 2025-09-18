@@ -2,7 +2,6 @@ import os
 from os.path import join
 import random
 from typing import Optional
-
 from loguru import logger
 import torch
 import torch.nn as nn
@@ -12,15 +11,18 @@ from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Traine
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, cast_mixed_precision_params
 from train_args import sft_TrainArgument
 import bitsandbytes as bnb
-from utils.data_process import MultiRoundDataProcess
+from utils.data_process import MultiRoundDataProcess, _is_rank0
 from utils.data_collator import SftDataCollator
 from train_args.common_args import CommonArgs
+import deepspeed
+
 from utils.eval.configs import EvaluationConfig, GenerationConfig
 from utils.eval.callback import EvaluationCallback
 from utils.eval.eval_metric import create_metric
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
+
 
 def initial_args():
     parser = HfArgumentParser((CommonArgs,))
@@ -91,7 +93,8 @@ def create_model(args, train_args):
     torch_dtype = torch.bfloat16 if train_args.bf16 else torch.float32
     model_kwargs = dict(
         trust_remote_code=True,
-        torch_dtype=torch_dtype
+        torch_dtype=torch_dtype,
+        attn_implementation="flash_attention_2" if args.use_flash_attention_2 else "sdpa"
         # fix bug
         # device_map='auto'
     )
@@ -171,7 +174,8 @@ def load_sft_dataset(args, tokenizer):
     return train_dataset
 
 
-def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = None, gen_config: Optional[GenerationConfig] = None):
+def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = None,
+                   gen_config: Optional[GenerationConfig] = None):
     """"
     Create Trainer，支持可选的评估功能
     Args:
@@ -239,35 +243,42 @@ def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = Non
     return trainer
 
 
+_log_handler_id: Optional[int] = None
+
+
 def log_out(args, train_args, tokenizer, train_dataset, model, target_modules, eval_args, gen_config):
+    global _log_handler_id
+    is_rank0 = _is_rank0()
+    if is_rank0 and _log_handler_id is None:
+        _log_handler_id = logger.add(join(train_args.output_dir, 'train.log'))
+    if not is_rank0:
+        return
     total = sum(p.numel() for p in model.parameters())
-    logger.add(join(train_args.output_dir, 'train.log'))
-    if train_args.local_rank == 0:
-        logger.info("train_args:{}".format(train_args))
-        logger.info("common_args:{}".format(args))
-        logger.info("\neval_args:{}".format(eval_args))
-        logger.info("\ngen_config:{}".format(gen_config))
-        logger.info(f'vocab_size of tokenizer: {tokenizer.vocab_size}')
-        logger.info(f'Loading model from base model: {args.model_name_or_path}')
-        logger.info("Total model params: %.2fM" % (total / 1e6))
-        logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
-        if args.train_mode != 'full':
-            trainable_params, all_param = model.get_nb_trainable_parameters()
-            logger.info(
-                f"trainable params: {trainable_params:,d} || "
-                f"all params: {all_param:,d} || "
-                f"trainable%: {100 * trainable_params / all_param:.4f}"
-            )
-        logger.info(f'Train model with {args.task_type} task')
-        logger.info(f'Train model with {args.train_mode}')
-        logger.info(f'LoRA target module names: {target_modules}')
-        logger.info(f'Loading data: {args.train_data_path}')
-        logger.info(f"Training dataset samples:{len(train_dataset)}")
-        for index in random.sample(range(len(train_dataset)), 3):
-            logger.info(
-                f"Sample {index} of the training set: {train_dataset[index]['input_ids']}, {train_dataset[index]['target_mask']}.")
-            logger.info(
-                f"Sample {index} of the training set: {tokenizer.decode(list(train_dataset[index]['input_ids']))}.")
+    logger.info("train_args:{}".format(train_args))
+    logger.info("common_args:{}".format(args))
+    logger.info("\neval_args:{}".format(eval_args))
+    logger.info("\ngen_config:{}".format(gen_config))
+    logger.info(f'vocab_size of tokenizer: {tokenizer.vocab_size}')
+    logger.info(f'Loading model from base model: {args.model_name_or_path}')
+    logger.info("Total model params: %.2fM" % (total / 1e6))
+    logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
+    if args.train_mode != 'full':
+        trainable_params, all_param = model.get_nb_trainable_parameters()
+        logger.info(
+            f"trainable params: {trainable_params:,d} || "
+            f"all params: {all_param:,d} || "
+            f"trainable%: {100 * trainable_params / all_param:.4f}"
+            f'LoRA target module names: {target_modules}'
+        )
+    logger.info(f'Train model with {args.task_type} task')
+    logger.info(f'Train model with {args.train_mode}')
+    logger.info(f'Loading data: {args.train_data_path}')
+    logger.info(f"Training dataset samples:{len(train_dataset)}")
+    for index in random.sample(range(len(train_dataset)), 3):
+        logger.info(
+            f"Sample {index} of the training set: {train_dataset[index]['input_ids']}, {train_dataset[index]['target_mask']}.")
+        logger.info(
+            f"Sample {index} of the training set: {tokenizer.decode(list(train_dataset[index]['input_ids']))}.")
 
 
 def main():
@@ -284,12 +295,9 @@ def main():
         # 原有的trainer创建方式
         trainer = create_trainer(args, train_args)
     # 开始训练
-    if train_args.local_rank == 0:
+    if _is_rank0():
         logger.info("*** starting training ***")
     train_result = trainer.train()
-    # Transformers 更新了自动保存最后训练结果
-    # final_save_path = join(train_args.output_dir)
-    # trainer.save_model(final_save_path)
 
     # 保存训练指标
     metrics = train_result.metrics

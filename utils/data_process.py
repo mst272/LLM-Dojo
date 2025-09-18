@@ -5,7 +5,7 @@ import json
 from torch.utils.data import Dataset
 from loguru import logger
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional, Any, cast, Union
 from transformers import PreTrainedTokenizerBase
 
 
@@ -29,24 +29,6 @@ def _is_rank0() -> bool:
     return True  # 单机默认主进程
 
 
-# logger.remove()  # 去掉默认 sink，避免重复输出
-def _rank_filter(record):
-    # rank0 允许 INFO+；非 rank0 仅允许 ERROR+
-    level_no = record["level"].no
-    return level_no >= (20 if _is_rank0() else 40)  # 20=INFO, 40=ERROR
-
-
-logger.add(
-    sys.stderr,
-    # sys.stdout,
-    filter=_rank_filter,
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | {message}",
-    enqueue=True,
-    backtrace=False,
-    diagnose=False,
-)
-
-
 class MultiRoundDataProcess(Dataset):
     """
     支持读取：
@@ -65,6 +47,8 @@ class MultiRoundDataProcess(Dataset):
         # —— 新增：识别是否 Qwen-3 —— #
         self.is_qwen3 = self.is_qwen3_tokenizer(tokenizer)
         # self.is_qwen3 = False
+
+        self.error_data = 0
 
         # 文件读取逻辑
         if not os.path.exists(file_or_dir):
@@ -142,8 +126,10 @@ class MultiRoundDataProcess(Dataset):
                 logger.error(f"跳过文件 {path}，原因: {e}")
 
     @staticmethod
-    def is_qwen3_tokenizer(tokenizer) -> bool:
-        """根据tokenizer.__class__.__name__词表大小判断是否 Qwen-3的tokenizer"""
+    def is_qwen3_tokenizer(tokenizer) -> Union[bool, str]:
+        """根据tokenizer.__class__.__name__词表大小判断是否 Qwen-3的tokenizer
+        返回：False | 'qwen3' | 'qwen3coder'
+        """
         name = tokenizer.__class__.__name__
         vocab_size = len(tokenizer.get_vocab())
         tokenizer_model_max_length = tokenizer.model_max_length
@@ -167,9 +153,10 @@ class MultiRoundDataProcess(Dataset):
         # data_list 存储的是字典
         return len(self.data_list)
 
-    def __getitem__(self, item) -> Optional[Dict[str, List[int]]]:  # 返回 Optional[Dict]
+    def __getitem__(self, item) -> Dict[str, Optional[List[int]]]:  # 返回包含可为 None 的字段
         # data 是已经加载的字典
         data = self.data_list[item]
+        erro
         try:
             messages = data.get('messages', data.get('message'))
             # 自动适配chat-template
@@ -196,13 +183,14 @@ class MultiRoundDataProcess(Dataset):
 
                 # --- 开始: 自动单轮多轮label设置的逻辑 ---
                 # 1、获取完整的 token IDs
-                full_input_ids = self.tokenizer.apply_chat_template(
+                full_dict = cast(Dict[str, List[int]], self.tokenizer.apply_chat_template(
                     messages,
                     add_generation_prompt=False,
                     add_special_tokens=False,
                     return_dict=True,
                     return_tensors=None
-                )['input_ids']
+                ))
+                full_input_ids = full_dict['input_ids']
 
                 # 2、迭代构建 labels (target_mask)
                 generated_labels = []
@@ -213,19 +201,21 @@ class MultiRoundDataProcess(Dataset):
                     role = msg.get('role')
                     if role in ['system', 'user']:
                         # 编码到当前轮次为止的对话
-                        current_turn_ids = self.tokenizer.apply_chat_template(
+                        current_dict = cast(Dict[str, List[int]], self.tokenizer.apply_chat_template(
                             messages[:i + 1],
                             add_generation_prompt=True,
                             return_dict=True,
                             add_special_tokens=False,
-                        )['input_ids']
+                        ))
+                        current_turn_ids = current_dict['input_ids']
                     else:
-                        current_turn_ids = self.tokenizer.apply_chat_template(
+                        current_dict = cast(Dict[str, List[int]], self.tokenizer.apply_chat_template(
                             messages[:i + 1],
                             add_generation_prompt=False,
                             return_dict=True,
                             add_special_tokens=False,
-                        )['input_ids']
+                        ))
+                        current_turn_ids = current_dict['input_ids']
 
                     # ========== ✨ 新增：对“非最后一个 assistant”扣掉 think ==========
                     current_len = len(current_turn_ids)
@@ -262,12 +252,24 @@ class MultiRoundDataProcess(Dataset):
                 attention_mask = [1] * len(input_ids)
 
                 if not (len(input_ids) == len(attention_mask) == len(labels)):
-                    logger.error(f"第 {item} 项最终长度不匹配！(优化版)")
-                    logger.error(f"  Input IDs len: {len(input_ids)}")
-                    logger.error(f"  Attention Mask len: {len(attention_mask)}")
-                    logger.error(f"  Labels len: {len(labels)}")
-                    logger.warning(f"跳过第 {item} 项：因最终长度不匹配。")
-                    raise ValueError(f"跳过第 {item} 项：因最终长度不匹配。")
+                    self.error_data += 1
+                    logger.warning(
+                        "当前共 {total} 个错误数据。"
+                        "跳过第 {item} 项：最终长度不匹配 "
+                        "数据为：{data}"
+                        "(input_ids_len={input_len}, attention_mask_len={attention_len}, labels_len={label_len})",
+                        item=item,
+                        input_len=len(input_ids),
+                        attention_len=len(attention_mask),
+                        label_len=len(labels),
+                        total=self.error_data,
+                        data=data
+                    )
+                    return {
+                        "input_ids": None,
+                        "attention_mask": None,
+                        "target_mask": None,
+                    }
 
                 # Qwen-3 label 修正
                 if self.is_qwen3:
@@ -301,44 +303,12 @@ class MultiRoundDataProcess(Dataset):
 
         except Exception as e:
             # 捕获其他意外错误
-            logger.exception(f"处理第 {item} 项时发生意外错误。 数据: {data}。 错误: {e}")
+            logger.exception(f"处理第 {item} 项时发生意外错误。 数据: {data}。")
             # 根据策略返回 None 或重新抛出异常
-            inputs = {
+            return {
                 "input_ids": None,
                 "attention_mask": None,
                 "target_mask": None
             }  # 返回 None 以允许训练在过滤后继续
-            return inputs
 
 
-
-
-# 下面是我们的规定数据格式 [{'question':'Who is the person in the picture?', 'answer':'this is panda'},{'question':'Is it cool?',
-# 'answer':'Yes'}]
-
-
-class VlmQaDataset(Dataset):
-    def __init__(self, data_file):
-        self.data_file = Path(data_file)
-        metadata_path = self.data_file.joinpath("metadata.jsonl")
-
-        self.messages = pd.read_json(metadata_path, lines=True)
-
-    def __len__(self):
-        return len(self.messages)
-
-    def __getitem__(self, item) -> Tuple[List[str], List[str], Path]:
-        message = self.messages['messages'][item]
-
-        # todo: 单图片输入，后续可扩展多图片输入？
-        image = self.messages['file_name'][item]
-        image_path = self.data_file.joinpath(image)
-
-        questions = []
-        answers = []
-
-        for text in message:
-            questions.append(text['question'])
-            answers.append(text['answer'])
-
-        return questions, answers, image_path
