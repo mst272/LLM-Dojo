@@ -22,6 +22,7 @@ from utils.eval.eval_metric import create_metric
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
+
 def initial_args():
     parser = HfArgumentParser((CommonArgs,))
     args, remaining_args = parser.parse_args_into_dataclasses(return_remaining_strings=True)
@@ -98,7 +99,9 @@ def create_model(args, train_args):
 
     def load_model(model_kwargs):
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
-
+        # router_aux_loss_coef设置
+        if args.router_aux_loss_coef is not None:
+            model.config.router_aux_loss_coef = args.router_aux_loss_coef
         # MoE - balancing loss     # Openrlhf
         model_config = model.config.to_dict()
         if "output_router_logits" in model_config:
@@ -171,7 +174,8 @@ def load_sft_dataset(args, tokenizer):
     return train_dataset
 
 
-def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = None, gen_config: Optional[GenerationConfig] = None):
+def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = None,
+                   gen_config: Optional[GenerationConfig] = None):
     """"
     Create Trainer，支持可选的评估功能
     Args:
