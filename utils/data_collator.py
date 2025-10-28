@@ -3,6 +3,11 @@ import torch
 from loguru import logger
 
 
+from typing import Any, Dict, List
+import torch
+from loguru import logger
+
+
 class SftDataCollator:
     def __init__(self, tokenizer, max_length):
         self.tokenizer = tokenizer
@@ -33,8 +38,15 @@ class SftDataCollator:
                 attention_mask = []
                 target_mask = []
                 logger.warning("遇到 input_ids=None，构造一个全 pad 的 dummy 样本")
-            padding_len = max_batch_length - len(input_ids)
+            #CP --------------------------------------------------------------------------------------------------
+            # remainder = max_batch_length % 16
+            # if remainder != 0:
+            #     padding_len = 16-remainder
+            # else:
+            #     padding_len = max_batch_length - len(input_ids)
+            # ------------------------------------------------------------------------------------------------------
             # 开始padding
+            padding_len = max_batch_length - len(input_ids)
             input_ids += [self.pad_token_id] * padding_len
             attention_mask += [0] * padding_len
             target_mask += [0] * padding_len
@@ -60,3 +72,4 @@ class SftDataCollator:
             'labels': labels
         }
         return inputs
+

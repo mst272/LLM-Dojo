@@ -5,35 +5,25 @@ from typing import Optional
 from loguru import logger
 import torch
 import torch.nn as nn
-from datasets import load_dataset
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, Trainer, \
     BitsAndBytesConfig, HfArgumentParser, set_seed
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, cast_mixed_precision_params
 from train_args import sft_TrainArgument
 import bitsandbytes as bnb
-from utils.data_process import MultiRoundDataProcess, _is_rank0
+from utils.data_process import MultiRoundDataProcess
 from utils.data_collator import SftDataCollator
 from train_args.common_args import CommonArgs
 import deepspeed
 
-from utils.eval.configs import EvaluationConfig, GenerationConfig
-from utils.eval.callback import EvaluationCallback
-from utils.eval.eval_metric import create_metric
-
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
 
 def initial_args():
     parser = HfArgumentParser((CommonArgs,))
     args, remaining_args = parser.parse_args_into_dataclasses(return_remaining_strings=True)
     if args.train_args_path == "sft_args":
-        if args.use_eval_in_train:
-            parser_b = HfArgumentParser((sft_TrainArgument, EvaluationConfig, GenerationConfig))
-            train_args, eval_args, gen_config = parser_b.parse_args_into_dataclasses(args=remaining_args)
-        else:
-            parser_b = HfArgumentParser((sft_TrainArgument,))
-            train_args, = parser_b.parse_args_into_dataclasses(args=remaining_args)
+        parser_b = HfArgumentParser((sft_TrainArgument,))
+        train_args, = parser_b.parse_args_into_dataclasses(args=remaining_args)
     else:
         raise ValueError("Invalid train_args_path choice")
 
@@ -42,8 +32,6 @@ def initial_args():
     set_seed(train_args.seed)
 
     assert sum([train_args.fp16, train_args.bf16]) == 1, "only one of fp16 and bf16 can be True"
-    if args.use_eval_in_train:
-        return args, train_args, eval_args, gen_config
     return args, train_args
 
 
@@ -91,17 +79,30 @@ def create_model(args, train_args):
     target_modules = None
     # 确定训练的精度
     torch_dtype = torch.bfloat16 if train_args.bf16 else torch.float32
+
+    # 1. 先加载配置
+    config = AutoConfig.from_pretrained(args.model_name_or_path, trust_remote_code=True)
+    # 2. 在加载模型前修改配置
+    if args.router_aux_loss_coef is not None:
+        config.router_aux_loss_coef = args.router_aux_loss_coef
+
     model_kwargs = dict(
+        config=config,
         trust_remote_code=True,
         torch_dtype=torch_dtype,
-        attn_implementation="flash_attention_2" if args.use_flash_attention_2 else "sdpa"
+        # use_cache=False,
+        #use_cache=False if train_args.gradient_checkpointing else True,  # The cache is only used for generation,
         # fix bug
         # device_map='auto'
+        # attn_implementation="flash_attention_2" if args.use_flash_attention_2 else "eager"
+        attn_implementation="flash_attention_2" if args.use_flash_attention_2 else "sdpa"
     )
 
     def load_model(model_kwargs):
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs)
-
+        # # router_aux_loss_coef设置
+        # if args.router_aux_loss_coef is not None:
+        #     model.config.router_aux_loss_coef = args.router_aux_loss_coef
         # MoE - balancing loss     # Openrlhf
         model_config = model.config.to_dict()
         if "output_router_logits" in model_config:
@@ -169,135 +170,97 @@ def create_model(args, train_args):
     }
 
 
-def load_sft_dataset(args, tokenizer):
-    train_dataset = MultiRoundDataProcess(args.train_data_path, tokenizer, args.max_len, args.auto_adapt)
+def load_sft_dataset(args, tokenizer, train_args):
+    train_dataset = MultiRoundDataProcess(args.train_data_path, tokenizer, args.max_len, train_args, args.auto_adapt)
     return train_dataset
 
 
-def create_trainer(args, train_args, eval_args: Optional[EvaluationConfig] = None,
-                   gen_config: Optional[GenerationConfig] = None):
-    """"
-    Create Trainer，支持可选的评估功能
-    Args:
-        args: 通用参数
-        train_args: 训练相关参数
-        eval_args: 评估相关参数（可选）
-        gen_config: 评估相关参数（可选）
-    """
-    # 1.Basic component initialization
+def create_trainer(args, train_args):
     tokenizer = create_tokenizer(args)
     model_dict = create_model(args, train_args)
     model = model_dict['model']
     # peft_config = model_dict['peft_config']
 
-    # 2. dataset process
     if args.task_type == 'sft':
-        train_dataset = load_sft_dataset(args, tokenizer)
+        train_dataset = load_sft_dataset(args, tokenizer, train_args)
         data_collator = SftDataCollator(tokenizer, args.max_len)
     elif args.task_type == 'pretrain':
         pass
 
-    # 3. log configuration
-    log_out(args, train_args, tokenizer, train_dataset, model, model_dict['target_modules'], eval_args, gen_config)
+    log_out(args, train_args, tokenizer, train_dataset, model, model_dict['target_modules'])
+    # sft or pretrain
 
-    # 4. sft or pretrain
+    #---------------------------------------------------------------------------------
+    # train_args.fsdp="full_shard offload"
+
+    # from accelerate.utils import ParallelismConfig
+    # train_args.parallelism_config=ParallelismConfig(
+    #     cp_size=4,
+    #     dp_shard_size=16
+    #     )
+
+    # dataloader加速
+    train_args.dataloader_persistent_workers=True
+    train_args.dataloader_num_workers=16
+    #---------------------------------------------------------------------------------------------------------
+
+
+
+
     if args.task_type == 'sft':
         trainer = Trainer(
             model=model,
             args=train_args,
             train_dataset=train_dataset,
-            data_collator=data_collator,
-            processing_class=tokenizer
+            data_collator=data_collator
         )
     elif args.task_type == 'pretrain':
         pass
-    # 5. Add evaluation callbacks if eval_args is provided
-    if eval_args is not None:
-        test_datasets = load_dataset(
-            path="json",
-            data_files=args.test_datasets_path
-        )['train']
-
-        # 创建评估回调
-        metrics = create_metric(eval_args)
-        eval_callback = EvaluationCallback(
-            trainer=trainer,
-            test_datasets=test_datasets,
-            generation_config=gen_config,
-            num_samples=eval_args.num_samples,
-            freq=eval_args.freq,
-            metrics=metrics,
-            max_checkpoints=eval_args.max_checkpoints,
-            per_device_test_batch_size=eval_args.per_device_test_batch_size,
-            higher_better=eval_args.higher_better,
-            start_update_best_checkpoints=eval_args.start_update_best_checkpoints,
-            use_vllm=eval_args.use_vllm,
-            gather_deepspeed3_params=gen_config.gather_deepspeed3_params,
-            prompts_apply_chat=eval_args.prompts_apply_chat,
-            vllm_server_host=eval_args.vllm_server_host,
-            vllm_server_port=eval_args.vllm_server_port,
-            vllm_server_timeout=eval_args.vllm_server_timeout
-        )
-        trainer.add_callback(eval_callback)
 
     return trainer
 
 
-_log_handler_id: Optional[int] = None
+def log_out(args, train_args, tokenizer, train_dataset, model, target_modules):
+    logger.add(join(train_args.output_dir, 'train.log'))
+    if train_args.local_rank == 0:
+        total = sum(p.numel() for p in model.parameters())
+        logger.info("train_args:{}".format(train_args))
+        logger.info("common_args:{}".format(args))
+        logger.info(f'vocab_size of tokenizer: {tokenizer.vocab_size}')
+        logger.info(f'Loading model from base model: {args.model_name_or_path}')
+        logger.info("Total model params: %.2fM" % (total / 1e6))
+        logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
+        if args.train_mode != 'full':
+            trainable_params, all_param = model.get_nb_trainable_parameters()
+            logger.info(
+                f"trainable params: {trainable_params:,d} || "
+                f"all params: {all_param:,d} || "
+                f"trainable%: {100 * trainable_params / all_param:.4f}"
+                f'LoRA target module names: {target_modules}'
+            )
+        logger.info(f'Train model with {args.task_type} task')
+        logger.info(f'Train model with {args.train_mode}')
+        logger.info(f'Loading data: {args.train_data_path}')
+        logger.info(f"Training dataset samples:{len(train_dataset)}")
+        for index in random.sample(range(len(train_dataset)), 1):
+            logger.info(
+                f"Sample {index} of the training set: {train_dataset[index]['input_ids']}, {train_dataset[index]['target_mask']}.")
+            logger.info(
+                f"Sample {index} of the training set: {tokenizer.decode(list(train_dataset[index]['input_ids']))}.")
 
-
-def log_out(args, train_args, tokenizer, train_dataset, model, target_modules, eval_args, gen_config):
-    global _log_handler_id
-    is_rank0 = _is_rank0()
-    if is_rank0 and _log_handler_id is None:
-        _log_handler_id = logger.add(join(train_args.output_dir, 'train.log'))
-    if not is_rank0:
-        return
-    total = sum(p.numel() for p in model.parameters())
-    logger.info("train_args:{}".format(train_args))
-    logger.info("common_args:{}".format(args))
-    logger.info("\neval_args:{}".format(eval_args))
-    logger.info("\ngen_config:{}".format(gen_config))
-    logger.info(f'vocab_size of tokenizer: {tokenizer.vocab_size}')
-    logger.info(f'Loading model from base model: {args.model_name_or_path}')
-    logger.info("Total model params: %.2fM" % (total / 1e6))
-    logger.info(f'memory footprint of model: {model.get_memory_footprint() / (1024 * 1024 * 1024)} GB')
-    if args.train_mode != 'full':
-        trainable_params, all_param = model.get_nb_trainable_parameters()
-        logger.info(
-            f"trainable params: {trainable_params:,d} || "
-            f"all params: {all_param:,d} || "
-            f"trainable%: {100 * trainable_params / all_param:.4f}"
-            f'LoRA target module names: {target_modules}'
-        )
-    logger.info(f'Train model with {args.task_type} task')
-    logger.info(f'Train model with {args.train_mode}')
-    logger.info(f'Loading data: {args.train_data_path}')
-    logger.info(f"Training dataset samples:{len(train_dataset)}")
-    for index in random.sample(range(len(train_dataset)), 3):
-        logger.info(
-            f"Sample {index} of the training set: {train_dataset[index]['input_ids']}, {train_dataset[index]['target_mask']}.")
-        logger.info(
-            f"Sample {index} of the training set: {tokenizer.decode(list(train_dataset[index]['input_ids']))}.")
 
 
 def main():
-    # args, train_args = initial_args()
-    # # 加载trainer
-    # trainer = create_trainer(args, train_args)
-    result = initial_args()
-    if len(result) == 4:
-        args, train_args, eval_args, gen_config = result
-        # 加载trainer，需要传入eval_args
-        trainer = create_trainer(args, train_args, eval_args, gen_config)
-    else:
-        args, train_args = result
-        # 原有的trainer创建方式
-        trainer = create_trainer(args, train_args)
+    args, train_args = initial_args()
+    # 加载trainer
+    trainer = create_trainer(args, train_args)
     # 开始训练
-    if _is_rank0():
+    if train_args.local_rank == 0:
         logger.info("*** starting training ***")
     train_result = trainer.train()
+    # Transformers 更新了自动保存最后训练结果
+    # final_save_path = join(train_args.output_dir)
+    # trainer.save_model(final_save_path)
 
     # 保存训练指标
     metrics = train_result.metrics

@@ -33,10 +33,12 @@ class CommonArgs:
     lora_alpha: Optional[int] = field(default=16, metadata={"help": "lora alpha"})
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "lora dropout"})
 
+    # 设置默认router_aux_loss_coef参数
+    router_aux_loss_coef: Optional[float] = field(default=None, metadata={"help": "router_aux_loss_coef参数,"
+                                                                                  "默认None此值为模型config文件中的值"})
+
     # 是否自动适配template
     auto_adapt: bool = field(default=True, metadata={"help": "选择是否自动适配template，若为False,则直接使用输入数据"})
-    # 是否训练中评测
-    use_eval_in_train: bool = False
-    test_datasets_path: Optional[str] = None
 
+    # 针对多轮对话是否跳过第一轮学习
     use_flash_attention_2: bool = field(default=True, metadata={"help": "选择是否使用flash_attention_2"})
