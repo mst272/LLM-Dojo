@@ -21,16 +21,16 @@ class EvaluateArgs:
     temperature: int = 1
 
     """模型路径"""
-    model_name_or_path: str = './'
+    model_name_or_path: str = '/'
     """是否仅评测模式，若为False，则下面的evaluate_data_path不用填"""
     evaluate_only: bool = False
     """仅评测时的文件路径"""
     evaluate_data_path: str = ''
     """模型生成的输出路径"""
-    output_path: str = './'
+    output_path: str = '/'
     """模型评测时输出的信息：pass或错误"""
-    save_logs_path: str = './'
+    save_logs_path: str = '/'
     """模型结果保存路径"""
-    save_metrics_path: str = './'
+    save_metrics_path: str = '/'
     """评测所需要的测试集"""
     data_file: str = ''

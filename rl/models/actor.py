@@ -2,6 +2,7 @@ from typing import Optional
 import torch.nn as nn
 from transformers.integrations.deepspeed import HfDeepSpeedConfig
 from peft import LoraConfig, TaskType, get_peft_model
+from peft.tuners.lora import LoraLayer
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 import torch
 import deepspeed
@@ -11,7 +12,7 @@ class Actor(nn.Module):
     def __init__(
         self, 
         pretrain_or_model,
-        use_flash_attention_2=False,
+        attn_implementation='flash_attention_2',
         bf16=True,
         load_in_4bit=False,
         lora_rank=0,
@@ -29,7 +30,7 @@ class Actor(nn.Module):
         self.temperature = temperature
 
         if isinstance(pretrain_or_model, str):
-            attn_implementation = "flash_attention_2" if use_flash_attention_2 else "eager"
+            attn_impl = attn_implementation
 
             # Note: dschf is defined in function scope to avoid global effects
             # https://huggingface.co/docs/transformers/deepspeed#non-trainer-deepspeed-integration
