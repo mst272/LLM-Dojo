@@ -1,5 +1,4 @@
 import os
-import sys
 import pandas as pd
 import json
 from torch.utils.data import Dataset
@@ -7,26 +6,6 @@ from loguru import logger
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from transformers import PreTrainedTokenizerBase
-
-
-# ----------------- Loguru：仅 rank0 输出 INFO/WARNING+；非 rank0 仅 ERROR+ -----------------
-def _is_rank0() -> bool:
-    # 环境变量优先
-    for k in ("RANK", "OMPI_COMM_WORLD_RANK", "SLURM_PROCID"):
-        v = os.environ.get(k)
-        if v is not None:
-            try:
-                return int(v) == 0
-            except Exception:
-                pass
-    # 尝试 torch.distributed
-    try:
-        import torch.distributed as dist
-        if dist.is_available() and dist.is_initialized():
-            return dist.get_rank() == 0
-    except Exception:
-        pass
-    return True  # 单机默认主进程
 
 
 class MultiRoundDataProcess(Dataset):
@@ -119,7 +98,6 @@ class MultiRoundDataProcess(Dataset):
         if not files:
             raise ValueError(f"目录 '{dir_path}' 中未找到 .jsonl / .parquet 文件")
 
-        # if _is_rank0():
         if self.train_args.local_rank == 0:
             logger.info(f"将在目录 '{dir_path}' 中读取 {len(files)} 个文件（递归）")
 
