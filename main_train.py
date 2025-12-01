@@ -1,7 +1,6 @@
 import os
 from os.path import join
 import random
-from typing import Optional
 from loguru import logger
 import torch
 import torch.nn as nn
