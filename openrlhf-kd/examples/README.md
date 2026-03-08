@@ -1,5 +1,7 @@
 # Reward / KD / Guide-KD
 
+[中文版](README_zh.md) | English
+
 Supports mixed training of `RLVR`, `KD`, and `Guide-KD`.
 
 - Route reward, KD, Guide-KD and teacher by `datasource`
