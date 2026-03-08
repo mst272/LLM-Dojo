@@ -111,7 +111,7 @@ class Experience:
         self.datasources = datasources or []
         self.rewards = rewards
         self.scores = scores
-        self.info = info or []
+        self.info = dict(info) if info is not None else {}
 
     @torch.no_grad()
     def to_device(self, device: torch.device):
@@ -150,7 +150,10 @@ class Experience:
             new_exp = Experience()
             for field in fields:
                 if hasattr(exp, field):
-                    setattr(new_exp, field, getattr(exp, field))
+                    value = getattr(exp, field)
+                    if field == "info" and value is not None:
+                        value = dict(value)
+                    setattr(new_exp, field, value)
             new_experiences.append(new_exp)
         return new_experiences
 
@@ -1055,4 +1058,3 @@ class RemoteExperienceMaker(ABC):
             returns[:, t] = cumulative_return
 
         return returns
-

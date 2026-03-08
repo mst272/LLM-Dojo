@@ -1,15 +1,15 @@
-"""统一 Reward 调度器（API 评测 + KD）。
+"""Unified Reward scheduler (API evaluation + KD).
 
-按 datasource 分发到对应评测逻辑，汇总 rewards/scores/extra_logs，
-可选计算 teacher per-token logprobs（支持 guided KD）。
+Dispatches by datasource to corresponding evaluation logic, aggregates rewards/scores/extra_logs,
+optionally computes teacher per-token logprobs (supports guided KD).
 
-支持的 datasource:
-- cruxeval   -> 本地 reward / API
-- python     -> 本地 HumanEval reward
+Supported datasources:
+- cruxeval   -> local reward / API
+- python     -> local HumanEval reward
 - bigcodebench -> /eval/bigcodebench
 - cpp/sh/ts/js/java/cs -> /eval/multiple
 
-reward_func 返回:
+reward_func returns:
 - rewards: Tensor[batch], 0.0/1.0
 - scores: Tensor[batch]
 - extra_logs: Dict[str, Tensor]
@@ -31,7 +31,7 @@ from examples.kd.teacher_kd import TeacherKDManager
 
 
 # =====================================================================
-# code_eval metric（进程内单例）
+# code_eval metric (process-internal singleton)
 # =====================================================================
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,7 +40,7 @@ _CODE_EVAL_METRIC = None
 
 
 def _get_code_eval_metric(metric_path: str = CODE_EVAL_METRIC_PATH):
-    """懒加载 code_eval metric。"""
+    """Lazy-load code_eval metric."""
     global _CODE_EVAL_METRIC
     if _CODE_EVAL_METRIC is None:
         os.environ["HF_ALLOW_CODE_EVAL"] = "1"
@@ -52,14 +52,14 @@ def _get_code_eval_metric(metric_path: str = CODE_EVAL_METRIC_PATH):
 
 
 # =====================================================================
-# 延迟加载的本地 reward 模块
+# Lazily-loaded local reward modules
 # =====================================================================
 
 _REWARD_MODULES: Dict[str, Any] = {}
 
 
 def _get_lazy_reward_func(name: str):
-    """懒加载本地 reward 函数（humaneval / cruxeval）。"""
+    """Lazy-load local reward function (humaneval / cruxeval)."""
     if name not in _REWARD_MODULES:
         if name == "humaneval":
             from examples.code_reward.local import humaneval_reward
@@ -73,11 +73,11 @@ def _get_lazy_reward_func(name: str):
 
 
 # =====================================================================
-# datasource -> reward 函数映射
+# datasource -> reward function mapping
 # =====================================================================
 
 DATASOURCE_TO_REWARD: Dict[str, Dict[str, Any]] = {
-    # 延迟加载的本地 reward
+    # Lazily-loaded local reward
     "cruxeval": {
         "resolver": lambda: _get_lazy_reward_func("cruxeval"),
         "needs_code_eval": True,
@@ -91,7 +91,7 @@ DATASOURCE_TO_REWARD: Dict[str, Dict[str, Any]] = {
         "resolver": lambda: reward_bigcodebench_api,
         "needs_code_eval": False,
     },
-    # 多语言 HumanEval
+    # Multi-language HumanEval
     **{
         lang: {
             "resolver": (lambda reward_fn=make_multiple_reward(lang): reward_fn),
@@ -104,14 +104,14 @@ DATASOURCE_TO_REWARD: Dict[str, Dict[str, Any]] = {
 DEFAULT_DATASOURCE = "cruxeval"
 
 # =====================================================================
-# KD 管理器 (在此处集中配置所有 KD 参数)
+# KD manager (centralize all KD configuration here)
 #
-# 训练模式速查:
-#   纯 RL (无 KD)        -> kd_datasources="none"
-#   全量 KD              -> kd_datasources="all"
-#   部分 KD              -> kd_datasources="python,cruxeval"
-#   Guided KD (注入答案)  -> guide_kd_datasources="all" 或指定子集
-#   纯 KD (跳过 reward)   -> skip_reward_datasources="python"
+# Training mode quick reference:
+#   Pure RL (no KD)       -> kd_datasources="none"
+#   Full KD               -> kd_datasources="all"
+#   Partial KD            -> kd_datasources="python,cruxeval"
+#   Guided KD (inject ans) -> guide_kd_datasources="all" or subset
+#   Pure KD (skip reward)  -> skip_reward_datasources="python"
 # =====================================================================
 
 _kd_mgr = TeacherKDManager(
@@ -119,9 +119,9 @@ _kd_mgr = TeacherKDManager(
     default_url="http://10.222.17.214:8080/v1/completions",
     default_model="zhanlu",
     timeout=600,
-    max_workers=1,  # teacher 并发数, 避免过载
+    max_workers=1,  # teacher concurrency, avoid overload
 
-    # --- 多教师分流 (按 datasource 路由到不同教师) ---
+    # --- Multi-teacher routing (route by datasource to different teachers) ---
     teacher_by_datasource={
         "bigcodebench": {"url": "http://10.222.17.214:8080/v1/completions", "model": "zhanlu"},
         "cruxeval":     {"url": "http://10.222.17.214:8080/v1/completions", "model": "zhanlu"},
@@ -132,15 +132,15 @@ _kd_mgr = TeacherKDManager(
         "agent_summary": {"url": "http://10.222.55.196:8080/v1/completions", "model": "zhanlu"},
     },
 
-    # --- 路由控制 ---
-    kd_datasources="all",                    # 哪些 ds 计算 teacher logprobs
-    guide_kd_datasources="agent_summary",    # 哪些 ds 启用 guided KD
-    skip_reward_datasources="agent_summary", # 哪些 ds 跳过 reward (纯 KD)
+    # --- Routing control ---
+    kd_datasources="all",                    # which ds compute teacher logprobs
+    guide_kd_datasources="agent_summary",    # which ds enable guided KD
+    skip_reward_datasources="agent_summary", # which ds skip reward (pure KD)
 
-    # --- Guided KD 内容 ---
+    # --- Guided KD content ---
     guide_prefix="\nHere is a reference solution:\n",
     guide_suffix="",
-    tokenizer_path="",  # 留空则回退到 default_model
+    tokenizer_path="",  # leave empty to fallback to default_model
 )
 
 _KNOWN_NON_REWARD_DATASOURCES = set(_kd_mgr.teacher_by_ds)
@@ -160,7 +160,7 @@ def _normalize_datasource(ds: Optional[str]) -> str:
 
 
 # =====================================================================
-# 统一 reward 入口
+# Unified reward entry point
 # =====================================================================
 
 def reward_func(
@@ -172,13 +172,13 @@ def reward_func(
     prompt_token_lens: Optional[List[int]] = None,
     **kwargs,
 ) -> Dict[str, Any]:
-    """统一 reward 入口。
+    """Unified reward entry point.
 
-    流程:
-    1. 按 datasource 分组，跳过 skip-reward 的样本
-    2. 分组调用 reward 函数
-    3. 构建 datasource 统计指标
-    4. 计算 teacher log-probs（KD 路由）
+    Flow:
+    1. Group by datasource, skip samples with skip-reward
+    2. Call reward functions per group
+    3. Build datasource statistics
+    4. Compute teacher log-probs (KD routing)
     """
     batch_size = len(queries)
     if datasources is None:
@@ -191,7 +191,7 @@ def reward_func(
         for ds in normalized_datasources
     ]
 
-    # --------- Step 1: 按 datasource 分组 ---------
+    # --------- Step 1: Group by datasource ---------
     grouped: Dict[str, Dict[str, list]] = defaultdict(
         lambda: {"indices": [], "queries": [], "prompts": [], "labels": []}
     )
@@ -204,7 +204,7 @@ def reward_func(
         grouped[reward_ds]["prompts"].append(p)
         grouped[reward_ds]["labels"].append(lbl)
 
-    # 初始化结果
+    # Initialize results
     all_rewards = [0.0] * batch_size
     all_scores = [0.0] * batch_size
     all_extra_logs: Dict[str, List[float]] = defaultdict(lambda: [0.0] * batch_size)
@@ -213,7 +213,7 @@ def reward_func(
     if any(DATASOURCE_TO_REWARD[ds_name]["needs_code_eval"] for ds_name in grouped):
         kwargs.setdefault("code_eval_metric", _get_code_eval_metric())
 
-    # --------- Step 2: 分 datasource 调用 reward ---------
+    # --------- Step 2: Call reward per datasource ---------
     for ds_name, g in grouped.items():
         indices = g["indices"]
         entry = DATASOURCE_TO_REWARD[ds_name]
@@ -244,12 +244,12 @@ def reward_func(
             print(f"[Error] Failed to compute reward for datasource '{ds_name}': {e}")
             traceback.print_exc()
 
-    # --------- Step 3: 返回值构建 ---------
+    # --------- Step 3: Build return values ---------
     rewards_t = torch.tensor(all_rewards, dtype=torch.float32)
     scores_t = torch.tensor(all_scores, dtype=torch.float32)
     extra_logs_t = {k: torch.tensor(v, dtype=torch.float32) for k, v in all_extra_logs.items()}
 
-    # --------- Step 4: datasource 统计指标 ---------
+    # --------- Step 4: Datasource statistics ---------
     for ds_name in DATASOURCE_TO_REWARD:
         ratio = [0.0] * batch_size
         pass_rate = [0.0] * batch_size

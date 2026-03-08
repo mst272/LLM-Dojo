@@ -49,9 +49,9 @@ def compute_reward(
     reward_clip_range: Tuple[float, float] = None,
 ) -> Union[torch.Tensor, list[torch.Tensor]]:
     '''
-    将sequence reward转化为Token级rewards:
-        把 scalar reward 放到最后一个有效 token 位置
-        加上 KL penalty。
+    Convert sequence reward to token-level rewards:
+        Place scalar reward at the last valid token position
+        Add KL penalty.
     '''
     if kl_coef <= 0.0:
         kl_coef = 0.0

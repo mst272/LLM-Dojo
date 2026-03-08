@@ -1,9 +1,9 @@
-"""Teacher 知识蒸馏 (KD) 模块。
+"""Teacher Knowledge Distillation (KD) module.
 
-提供 TeacherKDManager 类，管理:
-1. Teacher 模型 API 调用（支持多教师按 datasource 分流）
-2. Guided KD: 在 teacher prompt 中注入参考答案
-3. KD / Guide KD / Skip-Reward 的路由控制
+Provides TeacherKDManager class for managing:
+1. Teacher model API calls (supports multi-teacher routing by datasource)
+2. Guided KD: inject reference answers into teacher prompt
+3. Routing control for KD / Guide KD / Skip-Reward
 """
 
 import os
@@ -17,11 +17,11 @@ from transformers import AutoTokenizer
 
 
 def _parse_ds_set(raw: str) -> Optional[FrozenSet[str]]:
-    """解析 datasource 集合配置。
+    """Parse datasource set configuration.
 
-    格式:
-    - "all"  -> None (表示全部匹配)
-    - "none" / "" -> frozenset() (空集合, 不匹配任何)
+    Format:
+    - "all"  -> None (match all)
+    - "none" / "" -> frozenset() (empty set, match none)
     - "a,b,c" -> frozenset({"a", "b", "c"})
     """
     raw = raw.strip().lower()
@@ -33,34 +33,34 @@ def _parse_ds_set(raw: str) -> Optional[FrozenSet[str]]:
 
 
 class TeacherKDManager:
-    """管理 Teacher 侧的全部 KD 逻辑。
+    """Manages all KD logic on the Teacher side.
 
-    所有参数均可在构造时传入, 也可通过对应环境变量覆盖默认值。
-    在 guide-kd-reward.py 入口处构造实例时集中配置即可。
+    All parameters can be passed at construction time or overridden via environment variables.
+    Configure centrally when instantiating in guide-kd-reward.py entry point.
 
-    典型训练模式配置示例:
+    Typical training mode configuration examples:
     ┌──────────────────────────────┬──────────────────────────────────────────┐
-    │ 训练模式                     │ 配置                                     │
+    │ Training Mode                 │ Configuration                            │
     ├──────────────────────────────┼──────────────────────────────────────────┤
-    │ 纯 RL (无 KD)                │ kd_datasources="none"                    │
-    │ 全量 KD (所有 ds 蒸馏)       │ kd_datasources="all" (默认)              │
-    │ 部分 KD                      │ kd_datasources="python,cruxeval"         │
-    │ Guided KD (注入参考答案)     │ guide_kd_datasources="all" 或指定子集    │
-    │ 纯 KD (跳过 reward 评测)     │ skip_reward_datasources="agent_summary"  │
+    │ Pure RL (no KD)               │ kd_datasources="none"                    │
+    │ Full KD (all ds distilled)    │ kd_datasources="all" (default)           │
+    │ Partial KD                    │ kd_datasources="python,cruxeval"         │
+    │ Guided KD (inject reference)   │ guide_kd_datasources="all" or subset    │
+    │ Pure KD (skip reward eval)     │ skip_reward_datasources="agent_summary"  │
     └──────────────────────────────┴──────────────────────────────────────────┘
 
     Args:
-        default_url: 默认 teacher vLLM API 地址
-        default_model: 默认 teacher 模型名称
-        timeout: teacher API 超时 (秒)
-        max_workers: teacher API 并发线程数
-        teacher_by_datasource: 多教师分流配置 {ds: {"url": ..., "model": ...}}
-        kd_datasources: 哪些 ds 计算 teacher logprobs ("all"/"none"/逗号分隔)
-        guide_kd_datasources: 哪些 ds 启用 guided KD ("all"/"none"/逗号分隔)
-        skip_reward_datasources: 哪些 ds 跳过 reward 评测 ("none"/逗号分隔)
-        guide_prefix: guided KD 注入的前缀文本
-        guide_suffix: guided KD 注入的后缀文本
-        tokenizer_path: guided KD 使用的 tokenizer 路径
+        default_url: Default teacher vLLM API URL
+        default_model: Default teacher model name
+        timeout: Teacher API timeout (seconds)
+        max_workers: Teacher API concurrency thread count
+        teacher_by_datasource: Multi-teacher routing config {ds: {"url": ..., "model": ...}}
+        kd_datasources: Which ds compute teacher logprobs ("all"/"none"/comma-separated)
+        guide_kd_datasources: Which ds enable guided KD ("all"/"none"/comma-separated)
+        skip_reward_datasources: Which ds skip reward evaluation ("none"/comma-separated)
+        guide_prefix: Prefix text injected for guided KD
+        guide_suffix: Suffix text injected for guided KD
+        tokenizer_path: Tokenizer path for guided KD
     """
 
     def __init__(
@@ -71,7 +71,7 @@ class TeacherKDManager:
         timeout: int = 600,
         max_workers: int = 1,
         teacher_by_datasource: Optional[Dict[str, Dict[str, str]]] = None,
-        # --- 路由控制 ---
+        # --- Routing control ---
         kd_datasources: str = "all",
         guide_kd_datasources: str = "agent_summary",
         skip_reward_datasources: str = "agent_summary",
@@ -80,51 +80,51 @@ class TeacherKDManager:
         guide_suffix: str = "",
         tokenizer_path: str = "",
     ):
-        # Teacher API 配置
+        # Teacher API config
         self.default_url = os.getenv("TEACHER_VLLM_COMPLETION_URL", default_url)
         self.default_model = os.getenv("TEACHER_MODEL_NAME", default_model)
         self.timeout = int(os.getenv("TEACHER_TIMEOUT", str(timeout)))
         self.max_workers = int(os.getenv("TEACHER_MAX_WORKERS", str(max_workers)))
 
-        # 多教师按 datasource 分流 (直接传字典配置)
+        # Multi-teacher routing by datasource (pass dict config directly)
         self.teacher_by_ds: Dict[str, Dict[str, str]] = teacher_by_datasource or {}
 
-        # 路由控制: 解析 ds 集合
+        # Routing control: parse ds sets
         self.kd_ds = _parse_ds_set(kd_datasources)
         self.guide_ds = _parse_ds_set(guide_kd_datasources)
         self.skip_reward_ds = _parse_ds_set(skip_reward_datasources) or frozenset()
 
-        # Guided KD 配置
+        # Guided KD config
         self.guide_prefix = os.getenv("GUIDE_KD_PREFIX", guide_prefix)
         self.guide_suffix = os.getenv("GUIDE_KD_SUFFIX", guide_suffix)
         self._tokenizer_path = os.getenv("GUIDE_KD_TOKENIZER_NAME_OR_PATH", tokenizer_path).strip()
 
-        # 缓存 (懒加载)
+        # Cache (lazy load)
         self._tokenizer = None
         self._tokenizer_checked = False
-        self._chat_suffix_cached = False  # 区分 "未探测" 和 "探测后为空"
+        self._chat_suffix_cached = False  # Distinguish "not probed" vs "probed and empty"
         self._chat_suffix: Optional[str] = None
         self._chat_suffix_ids: Optional[List[int]] = None
 
     # -----------------------------------------------------------------
-    # 路由判断
+    # Routing predicates
     # -----------------------------------------------------------------
 
     def is_kd_enabled(self, ds: str) -> bool:
-        """该 datasource 是否需要计算 teacher logprobs。"""
+        """Whether this datasource should compute teacher logprobs."""
         return self.kd_ds is None or ds in self.kd_ds
 
     def is_guide_enabled(self, ds: str) -> bool:
-        """该 datasource 是否启用 guided KD (注入参考答案)。"""
+        """Whether this datasource has guided KD enabled (inject reference answers)."""
         return self.guide_ds is None or ds in self.guide_ds
 
     @property
     def is_kd_global_disabled(self) -> bool:
-        """判断是否全局关闭了 KD (即 KD_DATASOURCES="none")。"""
+        """Whether KD is globally disabled (i.e. KD_DATASOURCES="none")."""
         return self.kd_ds is not None and len(self.kd_ds) == 0
 
     def is_skip_reward(self, ds: str) -> bool:
-        """该 datasource 是否跳过 reward 评测 (纯 KD)。"""
+        """Whether this datasource skips reward evaluation (pure KD)."""
         return bool(self.skip_reward_ds) and ds in self.skip_reward_ds
 
     # -----------------------------------------------------------------
@@ -132,7 +132,7 @@ class TeacherKDManager:
     # -----------------------------------------------------------------
 
     def get_teacher_config(self, ds: Optional[str] = None) -> Tuple[str, str]:
-        """获取对应 datasource 的 teacher (url, model)。"""
+        """Get teacher (url, model) for the given datasource."""
         if ds:
             ds_norm = ds.lower().strip()
             route = self.teacher_by_ds.get(ds_norm, {})
@@ -143,7 +143,7 @@ class TeacherKDManager:
 
     def call_api(self, prompt: Union[str, List[int]],
                  ds: Optional[str] = None) -> List[float]:
-        """调用 teacher vLLM API, 返回 per-token logprobs (next-token 对齐)。"""
+        """Call teacher vLLM API, return per-token logprobs (next-token aligned)."""
         url, model = self.get_teacher_config(ds)
         payload = {
             "model": model, "prompt": prompt,
@@ -164,24 +164,24 @@ class TeacherKDManager:
 
     @staticmethod
     def _extract_logprobs(resp: Dict[str, Any]) -> List[float]:
-        """从 vLLM completion 响应中提取 token logprobs。"""
+        """Extract token logprobs from vLLM completion response."""
         choices = resp.get("choices") or []
         if not choices:
             return []
         lp_obj = choices[0].get("logprobs") or {}
         lps = lp_obj.get("token_logprobs") or []
         tokens = lp_obj.get("tokens") or []
-        # echo=True 时丢弃首项, 对齐 next-token 预测
+        # When echo=True, drop first item to align next-token prediction
         if tokens and len(lps) == len(tokens) and lps:
             lps = lps[1:]
         return [float(x) for x in lps if x is not None]
 
     # -----------------------------------------------------------------
-    # Guided KD: Tokenizer & Prompt 构建
+    # Guided KD: Tokenizer & Prompt building
     # -----------------------------------------------------------------
 
     def get_tokenizer(self):
-        """懒加载 guided KD tokenizer。"""
+        """Lazy-load guided KD tokenizer."""
         if not self._tokenizer_checked:
             self._tokenizer_checked = True
             path = self._tokenizer_path or self.default_model
@@ -195,7 +195,7 @@ class TeacherKDManager:
         return self._tokenizer
 
     def _get_chat_suffix(self) -> Tuple[Optional[str], Optional[List[int]]]:
-        """探测 chat template 后缀 (user 消息结束到 generation prompt 之间的标记)。"""
+        """Probe chat template suffix (tokens between user message end and generation prompt)."""
         if self._chat_suffix_cached:
             return self._chat_suffix, self._chat_suffix_ids
 
@@ -223,11 +223,11 @@ class TeacherKDManager:
         self, query_ids: List[int], prompt: str, label: str,
         prompt_len_hint: Optional[int] = None,
     ) -> Optional[Tuple[List[int], int, int, int]]:
-        """构建注入 guide 后的 token 序列。
+        """Build token sequence with guide injected.
 
         Returns:
             (guided_ids, guided_prompt_len, guide_delta_len, original_len)
-            构建失败返回 None。
+            Returns None if build fails.
         """
         tk = self.get_tokenizer()
         if not tk:
@@ -237,7 +237,7 @@ class TeacherKDManager:
         if not suffix:
             return None
 
-        # 确定 prompt 分界线
+        # Determine prompt boundary
         if prompt_len_hint and 0 < prompt_len_hint < len(query_ids):
             p_len = prompt_len_hint
         else:
@@ -246,7 +246,7 @@ class TeacherKDManager:
                 return None
             p_len = len(p_ids)
             if p_len > len(query_ids) or query_ids[:p_len] != p_ids:
-                # 最长公共前缀 fallback
+                # Longest common prefix fallback
                 p_len = 0
                 for a, b in zip(query_ids, p_ids):
                     if a != b:
@@ -261,7 +261,7 @@ class TeacherKDManager:
         if not guide_text.strip():
             return None
 
-        # 优先: token 级拼接
+        # Prefer: token-level concatenation
         guided_p_ids = None
         if (suffix_ids is not None
                 and len(suffix_ids) <= len(orig_p_ids)
@@ -270,9 +270,9 @@ class TeacherKDManager:
             if g_ids:
                 guided_p_ids = orig_p_ids[:-len(suffix_ids)] + g_ids + suffix_ids
 
-        # 回退: 文本级重编码
+        # Fallback: text-level re-encoding
         if guided_p_ids is None:
-            # 兼容单条文本级别的 guide fallback
+            # Compatible with single-text-level guide fallback
             prompt_text = prompt
             if suffix:
                 if not prompt_text.endswith(suffix):
@@ -319,7 +319,7 @@ class TeacherKDManager:
     @staticmethod
     def _recover_logprobs(lps: List[float], g_p_len: int,
                           delta: int, orig_len: int) -> List[float]:
-        """将 guided logprobs 恢复到原始序列长度 (prompt 补 0, response 对齐)。"""
+        """Recover guided logprobs to original sequence length (pad prompt with 0, align response)."""
         target = max(orig_len - 1, 0)
         if target == 0:
             return []
@@ -331,7 +331,7 @@ class TeacherKDManager:
         return kept + [0.0] * (target - len(kept))
 
     # -----------------------------------------------------------------
-    # 批量计算入口
+    # Batch computation entry
     # -----------------------------------------------------------------
 
     def compute_teacher_log_probs(
@@ -343,14 +343,14 @@ class TeacherKDManager:
         prompt_token_lens: Optional[List[int]] = None,
         datasources: Optional[List[str]] = None,
     ) -> Tuple[List[torch.Tensor], List[float], List[float], List[float]]:
-        """批量计算 teacher logprobs (支持 guided KD 与回退)。
+        """Batch compute teacher logprobs (supports guided KD and fallback).
 
         Returns:
             (teacher_logprobs_list, guide_applied, guide_fallback, kd_valid)
-            - teacher_logprobs_list: 每样本一个 1D tensor
-            - guide_applied: 1.0 表示成功使用 guided KD
-            - guide_fallback: 1.0 表示 guided 失败后回退到普通 KD
-            - kd_valid: 1.0 表示拿到了长度校验通过的 teacher logprobs
+            - teacher_logprobs_list: one 1D tensor per sample
+            - guide_applied: 1.0 means guided KD was successfully used
+            - guide_fallback: 1.0 means fallback to plain KD after guided failure
+            - kd_valid: 1.0 means teacher logprobs passed length validation
         """
         n = len(queries)
         if n == 0:
@@ -358,7 +358,7 @@ class TeacherKDManager:
 
         _z = torch.zeros(1, dtype=torch.float32)
 
-        # 准备输入 (优先用 token ids)
+        # Prepare inputs (prefer token ids)
         has_ids = query_token_ids is not None and len(query_token_ids) == n
         inputs: List[Any] = list(query_token_ids) if has_ids else list(queries)
         orig_inputs = list(inputs)
@@ -367,7 +367,7 @@ class TeacherKDManager:
         fallback = [0.0] * n
         valid = [0.0] * n
 
-        # 构建 guided 输入
+        # Build guided inputs
         needs_guide = (
             has_ids
             and prompts is not None
@@ -391,7 +391,7 @@ class TeacherKDManager:
                         metas[i] = guided[1:]  # type: ignore
                         applied[i] = 1.0
 
-        # 并发调用 teacher API
+        # Concurrent teacher API calls
         results: List[Optional[torch.Tensor]] = [None] * n
         with ThreadPoolExecutor(max_workers=self.max_workers) as ex:
             f2i = {
@@ -411,7 +411,7 @@ class TeacherKDManager:
                     results[idx] = torch.tensor(lps, dtype=torch.float32) if lps else _z
                     valid[idx] = 1.0
                 except Exception as e:
-                    # guided 失败 -> 回退普通 KD
+                    # Guided failed -> fallback to plain KD
                     if applied[idx] > 0:
                         applied[idx] = 0.0
                         fallback[idx] = 1.0

@@ -196,9 +196,9 @@ class ActorPPOTrainer(ABC):
                 status["global_batch_size"] = float(global_batch_size)
                 status["kl"] /= status["response_length"]
 
-                # 纠正混合数据源下 pass_rate 被稀释的问题：
-                # 使用 reward_sum/ratio 在 all_reduce 之后重新计算各数据源的真实通过率，
-                # 避免没有该数据源的 rank 把均值拉低。
+                # Fix pass_rate dilution under mixed datasources:
+                # Recompute true pass rate per datasource using reward_sum/ratio after all_reduce,
+                # to avoid ranks without that datasource pulling down the mean.
                 ratio_keys = [k for k in status.keys() if k.startswith("ratio_")]
                 for ratio_key in ratio_keys:
                     ds = ratio_key[len("ratio_") :]

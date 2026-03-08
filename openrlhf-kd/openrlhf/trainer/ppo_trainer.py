@@ -118,7 +118,7 @@ class BasePPOTrainer(ABC):
             self._swanlab = swanlab
             swanlab.login(api_key=self.strategy.args.use_swanlab)
 
-            # 创建新的设置对象，修改max_log_length参数
+            # Create new settings object to modify max_log_length parameter
             new_settings = swanlab.Settings(
                 max_log_length=4096,
             )
@@ -174,7 +174,9 @@ class BasePPOTrainer(ABC):
         if self.strategy.args.vllm_enable_sleep:
             batch_vllm_engine_call(self.vllm_engines, "sleep")
 
-    def save_logs_and_checkpoints(self, args, global_step, step_bar, logs_dict={}, client_states={}):
+    def save_logs_and_checkpoints(self, args, global_step, step_bar, logs_dict=None, client_states=None):
+        logs_dict = dict(logs_dict or {})
+        client_states = dict(client_states or {})
         if global_step % args.logging_steps == 0:
             # # wandb
             # if self._wandb is not None:
@@ -211,6 +213,8 @@ class BasePPOTrainer(ABC):
                     if k == "generated_samples":
                         # Record generated samples in TensorBoard using simple text format
                         text, reward = v
+                        if isinstance(reward, torch.Tensor) and reward.numel() == 1:
+                            reward = reward.item()
                         formatted_text = f"Sample:\n{text}\n\nReward: {reward:.4f}"
                         self._tensorboard.add_text("train/generated_samples", formatted_text, global_step)
                     else:
@@ -282,7 +286,7 @@ class BasePPOTrainer(ABC):
             for samples in samples_list:
                 rewards_list.append(samples.rewards)
             # Reshape rewards to (num_prompts, n_samples_per_prompt)
-            rewards = torch.tensor(rewards_list).reshape(-1, n_samples_per_prompt)
+            rewards = torch.cat(rewards_list, dim=0).reshape(-1, n_samples_per_prompt)
 
             # Collect local statistics for each data source
             global_metrics = {}  # {datasource: {"pass{n_samples_per_prompt}": 0, "pass1": 0, "count": 0}}
@@ -552,7 +556,7 @@ class PPOTrainer(BasePPOTrainer):
                 datasource_rewards = {}
                 total_samples_with_ds = 0
                 for exp in experiences:
-                    # 调试：打印 datasources 和 rewards 信息
+                    # Debug: print datasources and rewards info
                     ds_len = len(exp.datasources) if exp.datasources else 0
                     has_rewards = exp.rewards is not None
                     if ds_len > 0 and has_rewards:
@@ -563,7 +567,7 @@ class PPOTrainer(BasePPOTrainer):
                                 datasource_rewards[ds] = []
                             datasource_rewards[ds].append(reward)
                 
-                # 打印 per-datasource 统计（调试）
+                # Print per-datasource statistics (debug)
                 if datasource_rewards:
                     logger.info(f"📊 Per-datasource statistics (total samples with datasource: {total_samples_with_ds}):")
                     for ds, ds_rewards in datasource_rewards.items():
@@ -580,7 +584,10 @@ class PPOTrainer(BasePPOTrainer):
                 if self.args.dynamic_filtering:
                     status["dynamic_filtering_pass_rate"] = pass_rate
                 logger.info(f"✨ Global step {steps}: {status}")
-                status["generated_samples"] = [sample0[0], experiences[0].info["reward"][0]]
+                sample_reward = experiences[0].info["reward"][0]
+                if isinstance(sample_reward, torch.Tensor) and sample_reward.numel() == 1:
+                    sample_reward = sample_reward.item()
+                status["generated_samples"] = [sample0[0], float(sample_reward)]
 
                 # logs/checkpoints
                 client_states = {
