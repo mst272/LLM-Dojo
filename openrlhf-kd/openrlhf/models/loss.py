@@ -151,7 +151,8 @@ class PolicyLoss(nn.Module):
                 # ICEPOP: set coefficients outside the interval to 0
                 vllm_is = torch.exp(old_log_probs - rollout_log_probs).detach()
                 mask = (vllm_is >= low_threshold) & (vllm_is <= high_threshold)
-                vllm_is = vllm_is * mask
+                # Zero rejected weights by selection: inf * 0 would still be NaN.
+                vllm_is = torch.where(mask, vllm_is, 0.0)
             else:
                 # Standard clamp with low and high thresholds
                 vllm_is = (
